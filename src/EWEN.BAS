@@ -4,14 +4,19 @@
 40 MODE 2
 50 PRINT "Loading N4C-EWEN Terminal..."
 60 PRINT
+70 REM
+80 REM
+90 REM
 100 REM Load character set
 110 MEMORY &6800-1
 120 LOAD "charset.bin",&6800
 130 REM Check W5100S chip (do NOT reset - would lose NCFG settings!)
 135 PRINT "Checking Net4CPC W5100S..."
+140 REM Enable indirect bus mode + auto-increment (required for multi-byte I/O)
+141 OUT &FD20,3:REM Set MR = 3 (auto-increment + indirect bus mode)
 145 A=INP(&FD20)
 146 PRINT "W5100S Mode Register = ";A
-147 IF A=3 THEN PRINT "W5100S ready" ELSE PRINT "WARNING: Run NCFG.COM under CP/M first!"
+147 IF A=3 THEN PRINT "W5100S ready" ELSE PRINT "WARNING: Mode not set correctly!"
 148 PRINT "Press any key to continue..."
 149 CALL &BB18:REM Wait for keypress
 150 REM Configure W5100S network settings
@@ -44,14 +49,22 @@
 186 OUT &FD21,0:OUT &FD22,&33:OUT &FD23,168
 187 OUT &FD21,0:OUT &FD22,&34:OUT &FD23,68
 188 OUT &FD21,0:OUT &FD22,&35:OUT &FD23,54
-189 PRINT "IP: 192.168.68.254"
-190 PRINT "Subnet: 255.255.255.0"
-191 PRINT "Gateway: 192.168.68.1"
-192 PRINT "DNS: 192.168.68.54"
-193 PRINT "Network configured OK"
-194 PRINT "Press any key to continue..."
-195 CALL &BB18:REM Wait for keypress
-196 PRINT
+189 REM Verify IP was written correctly
+190 OUT &FD21,0:OUT &FD22,&F
+191 A=INP(&FD23)
+192 OUT &FD21,0:OUT &FD22,&10
+193 B=INP(&FD23)
+194 OUT &FD21,0:OUT &FD22,&11
+195 C=INP(&FD23)
+196 OUT &FD21,0:OUT &FD22,&12
+197 D=INP(&FD23)
+198 PRINT "Configured IP: ";A;".";B;".";C;".";D
+199 PRINT "Gateway: 192.168.68.1"
+200 PRINT "Subnet: 255.255.255.0"
+201 PRINT "Network configured OK"
+202 PRINT "Press any key to continue..."
+203 CALL &BB18:REM Wait for keypress
+204 PRINT
 300 REM Load terminal binary
 310 LOAD "EWENN4C.BIN",&7000
 400 REM Install RSX
