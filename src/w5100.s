@@ -772,11 +772,12 @@ SENDTO:
 
     ; --- Write data to TX buffer ---
     pop bc              ; [5] length
-    ; HL still = data buffer from pop hl [1] above (nothing has changed HL
-    ; since then — the TX pointer reads used DE/A only, not HL).
-    ; W5100_WRITE_BUF does NOT advance DE on exit (it saves/restores DE),
-    ; but that is fine here because DE = physical TX address is correct as-is.
-    push bc             ; [6] save length for pointer update
+    ; HL = data buffer (from stack pop above — wait, we popped HL already)
+    ; Need to get data ptr back; it was in HL before the TX pointer read.
+    ; Use the saved copy we already have — HL still holds data buffer
+    ; because we didn't push it again after restoring it. Re-push BC to save.
+    push bc             ; [6]
+    ; HL still = data buffer from the pop hl [1] above
     call W5100_WRITE_BUF    ; write BC bytes from (HL) to W5100S at DE
 
     ; --- Update TX write pointer ---
@@ -880,12 +881,12 @@ RECVFR:
     ld hl, (.recvfr_peerbuf)
     ld bc, 8
     call W5100_READ_BUF
-    ; NOTE: W5100_READ_BUF does NOT advance DE on exit (it push/pops DE).
-    ; The W5100S internal address pointer DID advance by 8 (auto-increment),
+    ; W5100_READ_BUF does NOT advance DE on exit (DE is push/popped internally).
+    ; The W5100S chip's internal address pointer advanced by 8 (auto-increment mode),
     ; but DE in the Z80 still holds the original physical start address.
-    ; We must manually advance DE by 8 to point at the payload.
+    ; We must manually add 8 to DE so the payload read starts at the right place.
     ld hl, 8
-    add hl, de          ; HL = physical address of payload (header start + 8)
+    add hl, de          ; HL = physical address of payload
     ex de, hl           ; DE = physical address of payload
 
     ; Extract payload size from bytes 6-7 of header (big-endian)
@@ -979,56 +980,30 @@ SELECT:
 ;-------------------------------------------------------
 ; N_TIME - Read timer value (KCNet API)
 ; Entry: None
-; Exit:  HL = timer value in milliseconds (wrapping, used for relative comparisons)
-;
-; FIX: Original read from 0xAC7E which is in the middle of the CPC screen RAM
-;      and contains essentially random pixel data — not a timer. This made every
-;      timeout comparison in DQUER1 produce garbage, causing the DNS wait loop
-;      to either exit immediately with a spurious timeout or spin forever.
-;
-;      The correct address is 0xB200: the CPC firmware FRAME counter, a 16-bit
-;      little-endian value that increments at 50Hz (once per VSYNC interrupt).
-;
-;      The *20 multiply (to convert 50Hz ticks → ms) overflows for large counter
-;      values (e.g. frame=50000 → 1,000,000 which wraps to garbage). Since the
-;      DNS client only ever uses N_TIME for relative differences (NOW - SEND_TIME)
-;      we can just return raw 50Hz ticks and scale N_XTIME/timeouts accordingly.
-;
-;      However the timeout values in dnsc-11.s are in ms (750, 1500...) and we
-;      can't easily change them. So instead: return ticks * 20 but clamp to avoid
-;      overflow by masking to the low 15 bits before multiplying, giving a
-;      monotonic-enough value for timeout purposes (wraps at ~32768*20 = 655ms,
-;      but relative differences < 1500ms remain correct as long as we don't wrap
-;      mid-measurement — which is fine since wrap period >> timeout period).
-;
-;      Actually the cleanest fix: just return the raw 50Hz tick count in HL, and
-;      multiply by 20 ONLY if it won't overflow (i.e. HL < 3277). Otherwise
-;      return HL*20 modulo 65536 — the subtraction in DQUER1 is unsigned and
-;      handles wrap-around correctly as long as the tick rate is consistent.
-;      The DNS code does: (NOW - SEND_TIME) >= Timeout, using 16-bit subtraction
-;      with overflow correction via N_XTIME. This works correctly even with
-;      modular arithmetic as long as the timeout << half the wrap period.
-;      Timeout max = 1500ms, half wrap at 50Hz*20=1000 ticks = 20000ms. Fine.
+; Exit:  HL = timer value in milliseconds (0-59999)
+; Uses CPC firmware frame flyback counter at 0xAC7E (16-bit, increments 50Hz)
+;-------------------------------------------------------
 N_TIME:
     push af
     push bc
     push de
 
-    ; Read CPC firmware FRAME counter at 0xB200 (16-bit LE, increments at 50Hz)
+    ; Read CPC firmware FRAME counter at 0xB200 (16-bit LE, 50Hz VSYNC ticks).
+    ; 0xAC7E was WRONG — it is in the middle of screen RAM (pixel data, not a timer).
+    ; 0xB200 is the correct firmware system variable for the frame tick counter.
     ld hl, (0xB200)
 
-    ; Multiply by 20 to convert 50Hz ticks to milliseconds.
-    ; HL * 20 = HL * 16 + HL * 4. Result is modulo 65536 which is fine for
-    ; relative timeout comparisons (N_XTIME = 6554 handles the wrap).
+    ; Convert 50Hz ticks -> milliseconds (* 20). Result is modulo 65536,
+    ; which is fine: DQUER1 uses relative subtraction and N_XTIME handles wrap.
     ld d, h
-    ld e, l             ; save original in DE
+    ld e, l
     add hl, hl          ; * 2
     add hl, hl          ; * 4
     ld b, h
     ld c, l             ; BC = * 4
     add hl, hl          ; * 8
     add hl, hl          ; * 16
-    add hl, bc          ; * 20  (modulo 65536 — intentional)
+    add hl, bc          ; * 20
 
     pop de
     pop bc
@@ -1082,28 +1057,34 @@ N_RIPA:
 ;-------------------------------------------------------
 ; N_DPRT - Get dynamic port number (KCNet API)
 ; Entry: None
-; Exit:  DE = port number in network byte order (big-endian)
-;        HL = port number in host byte order (little-endian, for MSG-ID use)
-; FIX: original used `ld h,a / inc hl` to read two successive W5100S registers,
-;      but after `ld h,a` HL holds a value like 0xC0xx, so `inc hl` no longer
-;      points at address 0x0037 — it reads a completely wrong register.
-;      Rewrote using an explicit address register kept in BC.
+; Exit:  HL = port in NETWORK byte order (big-endian, high byte in H)
+;
+; MKQUER wraps this call as: EX DE,HL / CALL N_DPRT / EX DE,HL
+; After both swaps, DE = port (net order), HL = write-ptr (restored).
+; So this function MUST return the port in HL = network order.
+;
+; Bug fixed: original did `ld h,a` then `inc hl` to advance the W5100S
+; register address. But after `ld h,a`, HL = (port_hi << 8 | 0x36), so
+; `inc hl` points at address (port_hi<<8 | 0x37) not 0x0037 — reading a
+; completely wrong register. Fixed by using explicit ld hl,0x0037.
 ;-------------------------------------------------------
 N_DPRT:
     push af
+    push de
 
-    ; Read 16-bit counter from W5100S addresses 0x0036/0x0037
+    ; Read 16-bit counter from W5100S regs 0x0036 / 0x0037
     ld hl, 0x0036
     call W5100_READ_REG
-    or 0xC0             ; Force high byte into ephemeral range (0xC0xx = port >= 49152)
-    ld d, a             ; D = high byte of port (network order)
-    ld hl, 0x0037
-    call W5100_READ_REG
-    ld e, a             ; E = low byte of port (network order)
-    ; DE = port in network byte order
+    or  0xC0            ; force into ephemeral range (port >= 49152)
+    ld  d, a            ; D = high byte
 
-    ; Increment for next call and write back
-    inc de              ; simple counter increment
+    ld hl, 0x0037       ; MUST reload HL — cannot use inc hl after ld h,a
+    call W5100_READ_REG
+    ld  e, a            ; E = low byte
+    ; DE = port in network order
+
+    ; Increment counter and write back
+    inc de
     ld hl, 0x0036
     ld a, d
     call W5100_WRITE_REG
@@ -1111,10 +1092,11 @@ N_DPRT:
     ld a, e
     call W5100_WRITE_REG
 
-    ; Return DE = network order, HL = host order (swapped)
-    ld h, e
-    ld l, d             ; HL = port in host byte order (for use as DNS msg ID)
+    ; Return HL = network order (H=high byte, L=low byte)
+    ld h, d
+    ld l, e
 
+    pop de
     pop af
     ret
 
