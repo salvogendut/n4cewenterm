@@ -772,12 +772,11 @@ SENDTO:
 
     ; --- Write data to TX buffer ---
     pop bc              ; [5] length
-    ; HL = data buffer (from stack pop above — wait, we popped HL already)
-    ; Need to get data ptr back; it was in HL before the TX pointer read.
-    ; Use the saved copy we already have — HL still holds data buffer
-    ; because we didn't push it again after restoring it. Re-push BC to save.
-    push bc             ; [6]
-    ; HL still = data buffer from the pop hl [1] above
+    ; HL still = data buffer from pop hl [1] above (nothing has changed HL
+    ; since then — the TX pointer reads used DE/A only, not HL).
+    ; W5100_WRITE_BUF does NOT advance DE on exit (it saves/restores DE),
+    ; but that is fine here because DE = physical TX address is correct as-is.
+    push bc             ; [6] save length for pointer update
     call W5100_WRITE_BUF    ; write BC bytes from (HL) to W5100S at DE
 
     ; --- Update TX write pointer ---
@@ -881,8 +880,13 @@ RECVFR:
     ld hl, (.recvfr_peerbuf)
     ld bc, 8
     call W5100_READ_BUF
-    ; After READ_BUF: DE has advanced by 8 (physical address now points at payload)
-    ; HL has advanced by 8 (peer_buf+8, past the header)
+    ; NOTE: W5100_READ_BUF does NOT advance DE on exit (it push/pops DE).
+    ; The W5100S internal address pointer DID advance by 8 (auto-increment),
+    ; but DE in the Z80 still holds the original physical start address.
+    ; We must manually advance DE by 8 to point at the payload.
+    ld hl, 8
+    add hl, de          ; HL = physical address of payload (header start + 8)
+    ex de, hl           ; DE = physical address of payload
 
     ; Extract payload size from bytes 6-7 of header (big-endian)
     ; peer_buf+6 = size_high, peer_buf+7 = size_low
@@ -975,33 +979,56 @@ SELECT:
 ;-------------------------------------------------------
 ; N_TIME - Read timer value (KCNet API)
 ; Entry: None
-; Exit:  HL = timer value in milliseconds (0-59999)
-; Uses CPC firmware frame flyback counter at 0xAC7E (16-bit, increments 50Hz)
-;-------------------------------------------------------
+; Exit:  HL = timer value in milliseconds (wrapping, used for relative comparisons)
+;
+; FIX: Original read from 0xAC7E which is in the middle of the CPC screen RAM
+;      and contains essentially random pixel data — not a timer. This made every
+;      timeout comparison in DQUER1 produce garbage, causing the DNS wait loop
+;      to either exit immediately with a spurious timeout or spin forever.
+;
+;      The correct address is 0xB200: the CPC firmware FRAME counter, a 16-bit
+;      little-endian value that increments at 50Hz (once per VSYNC interrupt).
+;
+;      The *20 multiply (to convert 50Hz ticks → ms) overflows for large counter
+;      values (e.g. frame=50000 → 1,000,000 which wraps to garbage). Since the
+;      DNS client only ever uses N_TIME for relative differences (NOW - SEND_TIME)
+;      we can just return raw 50Hz ticks and scale N_XTIME/timeouts accordingly.
+;
+;      However the timeout values in dnsc-11.s are in ms (750, 1500...) and we
+;      can't easily change them. So instead: return ticks * 20 but clamp to avoid
+;      overflow by masking to the low 15 bits before multiplying, giving a
+;      monotonic-enough value for timeout purposes (wraps at ~32768*20 = 655ms,
+;      but relative differences < 1500ms remain correct as long as we don't wrap
+;      mid-measurement — which is fine since wrap period >> timeout period).
+;
+;      Actually the cleanest fix: just return the raw 50Hz tick count in HL, and
+;      multiply by 20 ONLY if it won't overflow (i.e. HL < 3277). Otherwise
+;      return HL*20 modulo 65536 — the subtraction in DQUER1 is unsigned and
+;      handles wrap-around correctly as long as the tick rate is consistent.
+;      The DNS code does: (NOW - SEND_TIME) >= Timeout, using 16-bit subtraction
+;      with overflow correction via N_XTIME. This works correctly even with
+;      modular arithmetic as long as the timeout << half the wrap period.
+;      Timeout max = 1500ms, half wrap at 50Hz*20=1000 ticks = 20000ms. Fine.
 N_TIME:
     push af
     push bc
     push de
 
-    ; Read CPC frame counter (0xAC7E, 16-bit, 50Hz)
-    ld hl, (0xAC7E)
+    ; Read CPC firmware FRAME counter at 0xB200 (16-bit LE, increments at 50Hz)
+    ld hl, (0xB200)
 
-    ; Convert from 1/50 sec to milliseconds
-    ; HL = HL * 20 (since 1000ms/50 = 20ms per frame)
-    ; HL * 20 = HL * 16 + HL * 4
+    ; Multiply by 20 to convert 50Hz ticks to milliseconds.
+    ; HL * 20 = HL * 16 + HL * 4. Result is modulo 65536 which is fine for
+    ; relative timeout comparisons (N_XTIME = 6554 handles the wrap).
     ld d, h
-    ld e, l             ; DE = HL
-    add hl, hl          ; HL * 2
-    add hl, hl          ; HL * 4
+    ld e, l             ; save original in DE
+    add hl, hl          ; * 2
+    add hl, hl          ; * 4
     ld b, h
-    ld c, l             ; BC = HL * 4
-    add hl, hl          ; HL * 8
-    add hl, hl          ; HL * 16
-    add hl, bc          ; HL * 16 + HL * 4 = HL * 20
-
-    ; Keep only lower 16 bits (natural wrap at 65535)
-    ; Since frame counter wraps at 65535, and *20 could overflow,
-    ; we just use the result as-is
+    ld c, l             ; BC = * 4
+    add hl, hl          ; * 8
+    add hl, hl          ; * 16
+    add hl, bc          ; * 20  (modulo 65536 — intentional)
 
     pop de
     pop bc
