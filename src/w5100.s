@@ -995,51 +995,22 @@ SELECT:
 ; N_TIME - Read timer value (KCNet API)
 ; Entry: None
 ; Exit:  HL = timer value in milliseconds
-; Uses W5100S internal timer register at 0x0082 (counts in microseconds)
+; TEMPORARY: Simple incrementing counter to avoid crashes
 ;-------------------------------------------------------
 N_TIME:
     push af
-    push bc
-
-    ; Read W5100S timer register 0x0082 (16-bit, microseconds)
-    ld bc, W51HAD
-    xor a
-    out (c), a          ; High address = 0
-    inc c
-    ld a, 0x82
-    out (c), a          ; Low address = 0x82
-    inc c
-    in h, (c)           ; Read high byte
-    in l, (c)           ; Read low byte
-
-    ; Convert microseconds to milliseconds (divide by 1000)
-    ld c, 10            ; Divisor = 10 to convert us/100 to ms/10 approximately
-    call DIVHLC
-
-    pop bc
+    ld hl, (time_counter)
+    inc hl
+    inc hl
+    inc hl
+    inc hl
+    inc hl              ; Increment by 5 each call (simulates ~5ms passage)
+    ld (time_counter), hl
     pop af
     ret
 
-;-------------------------------------------------------
-; DIVHLC - Divide HL by C
-; Entry: HL = dividend, C = divisor
-; Exit:  HL = quotient, A = remainder
-;-------------------------------------------------------
-DIVHLC:
-    xor a
-    ld b, 16
-.div_loop:
-    add hl, hl
-    rla
-    jr c, .sub
-    cp c
-    jr c, .next
-.sub:
-    sub c
-    inc l
-.next:
-    djnz .div_loop
-    ret
+time_counter:
+    dw 0
 
 ;-------------------------------------------------------
 ; N_WIPA - Write IP address to storage (KCNet API)
