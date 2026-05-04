@@ -954,6 +954,7 @@ RECVFR:
 SL_RECV equ 1
 
 SELECT:
+    push af
     push hl
     push de
 
@@ -970,15 +971,19 @@ SELECT:
     or e
     jr z, .no_data
 
-    or a            ; Clear carry
-    jr .select_exit
-
-.no_data:
-    scf
-
-.select_exit:
+    ; Data available - clear carry
     pop de
     pop hl
+    pop af
+    or a            ; Clear carry (preserves AF)
+    ret
+
+.no_data:
+    ; No data - set carry
+    pop de
+    pop hl
+    pop af
+    scf
     ret
 
 ;-------------------------------------------------------

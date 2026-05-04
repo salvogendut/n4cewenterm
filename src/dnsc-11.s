@@ -526,6 +526,7 @@ DQUER2:	LD	E,(IY+2)
 	LD	D,(IY+3)	;load current Timeout
 	SBC	HL,DE
 	JR	NC,DQUER5	;Timediff.>=Timeout
+	LD	A,B		;load socket number for SELECT
 	LD	E,SL_RECV
 	CALL	SELECT
 	JR	C,DQUER1	;no Data
