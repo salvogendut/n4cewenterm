@@ -734,12 +734,16 @@ SENDTO:
     ; --- Write destination port to S1_DPORT0 ---
     ld a, (hl)          ; port high byte
     inc hl
-    ld de, S1_DPORT0
+    push hl
+    ld hl, S1_DPORT0
     call W5100_WRITE_REG
+    pop hl
     ld a, (hl)          ; port low byte
     inc hl
-    ld de, S1_DPORT0 + 1
+    push hl
+    ld hl, S1_DPORT0 + 1
     call W5100_WRITE_REG
+    pop hl
 
     ; --- Restore data buffer and length ---
     pop af              ; [4] socket (discard)
