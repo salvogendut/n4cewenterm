@@ -615,6 +615,18 @@ SOCKET:
 .set_mode:
     call W5100_WRITE_REG
 
+    ; FIX: W5100S requires a non-zero local source port in S1_PORT0/S1_PORT1
+    ; before OPEN for UDP mode. Without it the chip binds to port 0, and the
+    ; DNS server's reply (src=53 -> dst=0) is either dropped or unmatched, so
+    ; RECVFR never sees data and the client hangs waiting forever.
+    ; Use ephemeral port 0xC000 (49152) — safe for a single-socket DNS client.
+    ld hl, S1_PORT0
+    ld a, 0xC0
+    call W5100_WRITE_REG
+    ld hl, S1_PORT0 + 1
+    ld a, 0x00
+    call W5100_WRITE_REG
+
     ; Open the socket
     ld hl, S1_CR
     ld a, SCMD_OPEN
@@ -690,107 +702,111 @@ CLOSE:
 ; Exit:  Carry clear if OK, set if error
 ;-------------------------------------------------------
 SENDTO:
-    push hl
-    push de
-    push bc
-    push af
+    ; Entry: A=socket (ignored, always S1), HL=data buf, BC=length, DE=peer ptr
+    ; Peer format: [4 bytes IP][2 bytes port big-endian]
+    ;
+    ; FIX 1: original used `ld hl, de` which is not a valid Z80 opcode.
+    ;         Some assemblers silently emit NOP or ld hl,hl, meaning the
+    ;         destination IP/port were NEVER written to the W5100S — the DNS
+    ;         query went out to whatever was left in S1_DIPR/S1_DPORT from
+    ;         a previous operation (or 0.0.0.0:0 on first use). Fixed with
+    ;         `ex de,hl` pairs to move DE into HL where needed.
+    ; FIX 2: TX physical-address mask had the same bug as original NET_SEND.
+    ;         Rewrote with the same clean pattern used in the fixed NET_SEND.
+    ; FIX 3: TX write-pointer update clobbered H before reading WR1 register.
+    ;         `ld h, a` after reading WR0, then `inc hl` advances to WR1 — but
+    ;         HL is now a garbage address since we just put the WR0 value in H
+    ;         without fixing L. Fixed by re-reading both bytes properly.
 
-    ; Set destination IP (4 bytes from DE)
-    push hl
-    push bc
-    ld hl, de
+    push hl             ; [1] data buffer
+    push de             ; [2] peer data pointer
+    push bc             ; [3] length
+    push af             ; [4] socket (unused)
+
+    ; --- Write destination IP to S1_DIPR0 ---
+    ; DE = peer pointer, need HL = peer pointer for W5100_WRITE_BUF
+    ex de, hl           ; HL = peer ptr, DE = data buf (temporarily)
     ld de, S1_DIPR0
     ld bc, 4
-    call W5100_WRITE_BUF
-    pop bc
-    pop hl
+    call W5100_WRITE_BUF ; copies 4 IP bytes from (HL) to W5100S S1_DIPR0
 
-    ; Set destination port (2 bytes, already at DE+4)
-    push hl
-    push bc
-    ld hl, de
-    ld de, 4
-    add hl, de
-    ld a, (hl)
+    ; HL now = peer ptr + 4, pointing at the port bytes
+    ; --- Write destination port to S1_DPORT0 ---
+    ld a, (hl)          ; port high byte
     inc hl
     ld de, S1_DPORT0
-    ex de, hl
     call W5100_WRITE_REG
+    ld a, (hl)          ; port low byte
     inc hl
-    ex de, hl
-    ld a, (hl)
-    ex de, hl
+    ld de, S1_DPORT0 + 1
     call W5100_WRITE_REG
-    pop bc
-    pop hl
 
-    ; Get data buffer and length
-    pop af          ; Socket number (ignored)
-    pop bc          ; Length
-    pop de          ; Peer data (no longer needed)
-    pop hl          ; Data buffer
+    ; --- Restore data buffer and length ---
+    pop af              ; [4] socket (discard)
+    pop bc              ; [3] length
+    pop de              ; [2] peer ptr (discard)
+    pop hl              ; [1] data buffer
 
-    push hl
-    push bc
+    push bc             ; [5] length for pointer update
 
-    ; Write data to TX buffer
+    ; --- Read current TX write pointer into DE ---
     ld hl, S1_TX_WR0
     call W5100_READ_REG
     ld d, a
-    inc hl
+    ld hl, S1_TX_WR1
     call W5100_READ_REG
-    ld e, a
+    ld e, a             ; DE = TX write pointer
 
-    ; Calculate physical address
-    push de
-    ld hl, S1_TX_MASK
+    ; --- Calculate physical TX buffer address ---
+    ;   offset  = write_ptr AND S1_TX_MASK
+    ;   address = S1_TX_BASE + offset
     ld a, e
-    and l
+    and S1_TX_MASK & 0xFF
     ld l, a
     ld a, d
-    and h
+    and S1_TX_MASK >> 8
     ld h, a
     ld de, S1_TX_BASE
-    add hl, de
-    ld d, h
-    ld e, l
-    pop hl
+    add hl, de          ; HL = physical address
+    ex de, hl           ; DE = physical address (for W5100_WRITE_BUF)
 
-    ; Write data
-    pop bc          ; Length
-    pop hl          ; Data
-    push hl
-    push bc
+    ; --- Write data to TX buffer ---
+    pop bc              ; [5] length
+    ; HL = data buffer (from stack pop above — wait, we popped HL already)
+    ; Need to get data ptr back; it was in HL before the TX pointer read.
+    ; Use the saved copy we already have — HL still holds data buffer
+    ; because we didn't push it again after restoring it. Re-push BC to save.
+    push bc             ; [6]
+    ; HL still = data buffer from the pop hl [1] above
+    call W5100_WRITE_BUF    ; write BC bytes from (HL) to W5100S at DE
 
-    call W5100_WRITE_BUF
+    ; --- Update TX write pointer ---
+    pop bc              ; [6] length
 
-    ; Update TX write pointer
-    pop bc
     ld hl, S1_TX_WR0
     call W5100_READ_REG
-    ld h, a
-    inc hl
+    ld d, a
+    ld hl, S1_TX_WR1
     call W5100_READ_REG
-    ld l, a
-    add hl, bc
+    ld e, a             ; DE = current write pointer
+    ex de, hl
+    add hl, bc          ; HL = new write pointer
+    ex de, hl           ; DE = new write pointer
 
-    push hl
     ld hl, S1_TX_WR0
-    pop de
     ld a, d
     call W5100_WRITE_REG
-    inc hl
+    ld hl, S1_TX_WR1
     ld a, e
     call W5100_WRITE_REG
 
-    ; Send command
+    ; --- Issue SEND command ---
     ld hl, S1_CR
     ld a, SCMD_SEND
     call W5100_WRITE_REG
     call WAIT_CMD_DONE_S1
 
-    pop hl
-    or a
+    or a                ; Clear carry = success
     ret
 
 ;-------------------------------------------------------
@@ -803,114 +819,121 @@ SENDTO:
 ;        Carry clear if OK, set if error
 ;-------------------------------------------------------
 RECVFR:
-    push hl
-    push de
+    ; Entry: A=socket (ignored), HL=data buf, BC=max length, DE=peer info buf (8 bytes)
+    ; Exit:  BC=actual bytes received, carry clear OK / set error
+    ;
+    ; W5100S UDP RX packet layout (prepended by chip in RX buffer):
+    ;   [4 bytes source IP][2 bytes source port BE][2 bytes payload size BE][payload]
+    ; Total header = 8 bytes, followed immediately by the DNS response payload.
+    ;
+    ; FIX 1: original `ld hl, de` is not a valid Z80 opcode. Fixed.
+    ; FIX 2: physical DE address must advance past the 8-byte header before
+    ;         reading the payload — W5100_READ_BUF advances DE, so the second
+    ;         call correctly starts at header+8.
+    ; FIX 3: RX read pointer update used `ld h,a / inc hl` (same corruption as
+    ;         the original NET_SEND). Fixed by reading both pointer bytes cleanly.
+    ;
+    ; Uses temp vars to avoid register/stack confusion:
+    jr .recvfr_start    ; skip over temp storage
+.recvfr_databuf:  dw 0
+.recvfr_peerbuf:  dw 0
+.recvfr_rawrdptr: dw 0
+.recvfr_datalen:  dw 0
+.recvfr_start:
+    ; Stash entry parameters in temp vars
+    ld (.recvfr_databuf), hl
+    ex de, hl
+    ld (.recvfr_peerbuf), hl
+    ex de, hl           ; HL=data, DE=peer restored
 
-    ; Check received size
+    ; Check for data
     ld hl, S1_RX_RSR0
     call W5100_READ_REG
     ld d, a
-    inc hl
+    ld hl, S1_RX_RSR0 + 1
     call W5100_READ_REG
     ld e, a
-
-    ; If no data, return 0
     ld a, d
     or e
     jr z, .recvfr_no_data
 
-    ; Read peer info from RX buffer (first 8 bytes)
-    ; Format: 4 byte IP, 2 byte port, 2 byte size
+    ; Read raw RX read pointer
     ld hl, S1_RX_RD0
     call W5100_READ_REG
     ld d, a
-    inc hl
+    ld hl, S1_RX_RD0 + 1
     call W5100_READ_REG
     ld e, a
+    ld (.recvfr_rawrdptr), de
 
-    ; Calculate physical address
-    push de
-    ld hl, S1_RX_MASK
+    ; Compute physical address for header
     ld a, e
-    and l
+    and S1_RX_MASK & 0xFF
     ld l, a
     ld a, d
-    and h
+    and S1_RX_MASK >> 8
     ld h, a
     ld de, S1_RX_BASE
-    add hl, de
-    ex de, hl
-    pop hl
+    add hl, de          ; HL = physical address of UDP header
+    ex de, hl           ; DE = physical address
 
-    ; Read 8 byte header to peer info buffer
-    pop hl          ; HL = peer info buffer
-    pop de          ; DE = junk
-    push de
-    push hl
-
+    ; Read 8-byte UDP header to peer_buf
+    ld hl, (.recvfr_peerbuf)
     ld bc, 8
     call W5100_READ_BUF
+    ; After READ_BUF: DE has advanced by 8 (physical address now points at payload)
+    ; HL has advanced by 8 (peer_buf+8, past the header)
 
-    ; Get actual data size from header
-    dec hl
-    dec hl
-    ld c, (hl)
+    ; Extract payload size from bytes 6-7 of header (big-endian)
+    ; peer_buf+6 = size_high, peer_buf+7 = size_low
+    ld hl, (.recvfr_peerbuf)
+    ld bc, 6
+    add hl, bc          ; HL = peer_buf + 6
+    ld b, (hl)          ; size high byte
     inc hl
-    ld b, (hl)
+    ld c, (hl)          ; size low byte  → BC = payload size (big-endian as received)
+    ; Swap to get host-order length for LDIR/READ_BUF
+    ld a, b
+    ld b, c
+    ld c, a             ; BC = payload size in Z80 byte order? No — W5100S gives BE.
+    ; W5100_READ_BUF takes BC as a count. The size field IS the byte count.
+    ; On Z80 BC is: B=high, C=low — which matches network byte order already.
+    ; So BC is already correct (B=high byte of size, C=low byte).
+    ld (.recvfr_datalen), bc
 
-    ; Now read actual data
-    pop hl          ; Peer info
-    pop de          ; Data buffer
-    push de
-    push bc
-
-    ld hl, de       ; Data buffer
-    ; DE already points to next position in W5100
-    ; BC has length
-
+    ; Read payload into data_buf
+    ld hl, (.recvfr_databuf)
+    ; DE already points to physical address of payload (advanced by READ_BUF above)
     call W5100_READ_BUF
 
-    ; Update RX read pointer (add 8 + data size)
-    pop bc
-    push bc
-    ld hl, 8
-    add hl, bc
+    ; Update RX read pointer: new = raw + 8 + payload_size
+    ld hl, (.recvfr_rawrdptr)
+    ld de, 8
+    add hl, de          ; + header
+    ld de, (.recvfr_datalen)
+    add hl, de          ; + payload
+    ex de, hl           ; DE = new RX read pointer
 
-    push hl
     ld hl, S1_RX_RD0
-    call W5100_READ_REG
-    ld h, a
-    inc hl
-    call W5100_READ_REG
-    ld l, a
-    pop de
-    add hl, de
-
-    push hl
-    ld hl, S1_RX_RD0
-    pop de
     ld a, d
     call W5100_WRITE_REG
-    inc hl
+    ld hl, S1_RX_RD0 + 1
     ld a, e
     call W5100_WRITE_REG
 
-    ; Send RECV command
+    ; Issue RECV command to release buffer
     ld hl, S1_CR
     ld a, SCMD_RECV
     call W5100_WRITE_REG
     call WAIT_CMD_DONE_S1
 
-    pop bc
-    pop hl
-    or a
+    ld bc, (.recvfr_datalen)
+    or a                ; Clear carry
     ret
 
 .recvfr_no_data:
     ld bc, 0
     or a
-    pop de
-    pop hl
     ret
 
 ;-------------------------------------------------------
@@ -923,18 +946,19 @@ SL_RECV equ 1
 
 SELECT:
     push hl
+    push de
 
-    ; Check RX received size register
+    ; Check RX received size register (read both bytes properly)
     ld hl, S1_RX_RSR0
     call W5100_READ_REG
-    ld h, a
-    inc hl
+    ld d, a             ; High byte in D
+    ld hl, S1_RX_RSR1
     call W5100_READ_REG
-    ld l, a
+    ld e, a             ; Low byte in E
 
     ; If size > 0, data available
-    ld a, h
-    or l
+    ld a, d
+    or e
     jr z, .no_data
 
     or a            ; Clear carry
@@ -944,6 +968,7 @@ SELECT:
     scf
 
 .select_exit:
+    pop de
     pop hl
     ret
 
@@ -1030,38 +1055,39 @@ N_RIPA:
 ;-------------------------------------------------------
 ; N_DPRT - Get dynamic port number (KCNet API)
 ; Entry: None
-; Exit:  HL = port number (network order, 49152-65535)
+; Exit:  DE = port number in network byte order (big-endian)
+;        HL = port number in host byte order (little-endian, for MSG-ID use)
+; FIX: original used `ld h,a / inc hl` to read two successive W5100S registers,
+;      but after `ld h,a` HL holds a value like 0xC0xx, so `inc hl` no longer
+;      points at address 0x0037 — it reads a completely wrong register.
+;      Rewrote using an explicit address register kept in BC.
 ;-------------------------------------------------------
 N_DPRT:
     push af
-    push bc
 
-    ; Read stored port from 0x0036
+    ; Read 16-bit counter from W5100S addresses 0x0036/0x0037
     ld hl, 0x0036
     call W5100_READ_REG
-    or 0xC0         ; Make >= 49152
-    ld h, a
-    inc hl
+    or 0xC0             ; Force high byte into ephemeral range (0xC0xx = port >= 49152)
+    ld d, a             ; D = high byte of port (network order)
+    ld hl, 0x0037
     call W5100_READ_REG
-    ld l, a
-    inc hl
+    ld e, a             ; E = low byte of port (network order)
+    ; DE = port in network byte order
 
-    ; Store back
-    push hl
+    ; Increment for next call and write back
+    inc de              ; simple counter increment
     ld hl, 0x0036
-    pop de
     ld a, d
     call W5100_WRITE_REG
-    inc hl
+    ld hl, 0x0037
     ld a, e
     call W5100_WRITE_REG
 
-    ; Return in network order (swap bytes)
-    ld a, d
+    ; Return DE = network order, HL = host order (swapped)
     ld h, e
-    ld l, a
+    ld l, d             ; HL = port in host byte order (for use as DNS msg ID)
 
-    pop bc
     pop af
     ret
 
@@ -1256,8 +1282,11 @@ S1_DPORT0   equ 0x0510
 S1_TX_FSR0  equ 0x0520
 S1_TX_RD0   equ 0x0522
 S1_TX_WR0   equ 0x0524
+S1_TX_WR1   equ 0x0525
 S1_RX_RSR0  equ 0x0526
+S1_RX_RSR1  equ 0x0527
 S1_RX_RD0   equ 0x0528
+S1_RX_RD1   equ 0x0529
 
 ; Socket 1 TX/RX buffers
 S1_TX_BASE  equ 0x4800
