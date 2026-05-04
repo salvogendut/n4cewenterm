@@ -594,16 +594,30 @@ CHECK_CONNECTION:
 ;        E = flags (unused)
 ; Exit:  A = socket number if OK
 ;        Carry clear if OK, set if error
+; Based on KCNet w5100-12.inc SOCKET implementation
 ;-------------------------------------------------------
 SOCKET:
     push hl
     push bc
 
-    ; For simplicity, use socket 1 for UDP (DNS)
-    ; Socket 0 is reserved for TCP (telnet)
+    ; Use socket 1 for UDP (DNS), socket 0 reserved for TCP (telnet)
     ld a, 1
 
-    ; Set socket mode
+    ; Step 1: Clear interrupt register
+    ld hl, S1_IR
+    ld a, 0xFF
+    call W5100_WRITE_REG
+
+    ; Step 2: Set source port BEFORE opening socket (CRITICAL for UDP!)
+    ; Use ephemeral port 0xC000 (49152) for DNS client
+    ld hl, S1_PORT0
+    ld a, 0xC0              ; High byte
+    call W5100_WRITE_REG
+    ld hl, S1_PORT1
+    ld a, 0x00              ; Low byte
+    call W5100_WRITE_REG
+
+    ; Step 3: Set socket mode (TCP or UDP)
     ld hl, S1_MR
     ld a, d
     cp SK_DGRAM
@@ -615,27 +629,29 @@ SOCKET:
 .set_mode:
     call W5100_WRITE_REG
 
-    ; Open the socket
+    ; Step 4: Send OPEN command
     ld hl, S1_CR
     ld a, SCMD_OPEN
     call W5100_WRITE_REG
 
+    ; Step 5: Wait for command to complete
     call WAIT_CMD_DONE_S1
 
-    ; Check status
+    ; Step 6: Check socket status
     ld hl, S1_SR
     call W5100_READ_REG
-    cp SSTAT_INIT
+    cp SSTAT_INIT           ; 0x13 for TCP
     jr z, .socket_ok
-    cp SSTAT_UDP
+    cp SSTAT_UDP            ; 0x22 for UDP
     jr z, .socket_ok
 
+    ; Socket didn't open properly - return error
     scf
     jr .socket_exit
 
 .socket_ok:
-    ld a, 1         ; Return socket number
-    or a            ; Clear carry
+    ld a, 1                 ; Return socket number 1
+    or a                    ; Clear carry = success
 
 .socket_exit:
     pop bc
@@ -683,268 +699,282 @@ CLOSE:
 
 ;-------------------------------------------------------
 ; SENDTO - Send UDP datagram (KCNet API)
-; Entry: A = socket number
+; Entry: A = socket number (ignored, always use socket 1)
 ;        HL = data buffer
 ;        BC = data length
-;        DE = peer data (4 byte IP + 2 byte port)
+;        DE = peer data pointer (4 byte IP + 2 byte port, big-endian)
 ; Exit:  Carry clear if OK, set if error
+; Based on KCNet w5100-12.inc SENDTO implementation
 ;-------------------------------------------------------
 SENDTO:
-    push hl
-    push de
-    push bc
-    push af
+    push hl             ; [1] data buffer
+    push de             ; [2] peer data pointer
+    push bc             ; [3] length
 
-    ; Set destination IP (4 bytes from DE)
-    push hl
-    push bc
-    ld hl, de
-    ld de, S1_DIPR0
+    ; Step 1: Write destination IP (4 bytes) to S1_DIPR
+    ; DE points to peer data, need to copy IP bytes
+    ex de, hl           ; HL = peer pointer, DE = data buf
     ld bc, 4
-    call W5100_WRITE_BUF
-    pop bc
+    push de             ; Save data buf
+    ld de, S1_DIPR0
+    call W5100_WRITE_BUF    ; Writes 4 bytes from (HL) to S1_DIPR
+    pop de              ; DE = data buf again
+    ; HL now points at peer+4 (the port bytes)
+
+    ; Step 2: Write destination port (2 bytes) to S1_DPORT
+    ld a, (hl)          ; Port high byte
+    push hl
+    ld hl, S1_DPORT0
+    call W5100_WRITE_REG
+    pop hl
+    inc hl
+    ld a, (hl)          ; Port low byte
+    push hl
+    ld hl, S1_DPORT1
+    call W5100_WRITE_REG
     pop hl
 
-    ; Set destination port (2 bytes, already at DE+4)
-    push hl
-    push bc
-    ld hl, de
-    ld de, 4
-    add hl, de
-    ld a, (hl)
-    inc hl
-    ld de, S1_DPORT0
-    ex de, hl
-    call W5100_WRITE_REG
-    inc hl
-    ex de, hl
-    ld a, (hl)
-    ex de, hl
-    call W5100_WRITE_REG
-    pop bc
-    pop hl
+    ; Step 3: Restore data buffer and length from stack
+    pop bc              ; [3] length
+    pop hl              ; [2] peer pointer (discard)
+    pop hl              ; [1] data buffer
 
-    ; Get data buffer and length
-    pop af          ; Socket number (ignored)
-    pop bc          ; Length
-    pop de          ; Peer data (no longer needed)
-    pop hl          ; Data buffer
+    push hl             ; [4] save data buffer
+    push bc             ; [5] save length
 
-    push hl
-    push bc
-
-    ; Write data to TX buffer
+    ; Step 4: Read current TX write pointer
     ld hl, S1_TX_WR0
     call W5100_READ_REG
     ld d, a
-    inc hl
+    ld hl, S1_TX_WR1
     call W5100_READ_REG
-    ld e, a
+    ld e, a             ; DE = TX write pointer
 
-    ; Calculate physical address
-    push de
-    ld hl, S1_TX_MASK
+    ; Step 5: Calculate physical buffer address
+    ; physical = (pointer & 0x07FF) + 0x4800
     ld a, e
-    and l
+    and S1_TX_MASK & 0xFF
     ld l, a
     ld a, d
-    and h
-    ld h, a
+    and S1_TX_MASK >> 8
+    ld h, a             ; HL = masked offset
     ld de, S1_TX_BASE
-    add hl, de
-    ld d, h
-    ld e, l
-    pop hl
+    add hl, de          ; HL = physical address
+    ex de, hl           ; DE = physical address for W5100_WRITE_BUF
 
-    ; Write data
-    pop bc          ; Length
-    pop hl          ; Data
-    push hl
-    push bc
-
+    ; Step 6: Write data to TX buffer
+    pop bc              ; [5] length
+    pop hl              ; [4] data buffer
+    push bc             ; [6] save length for pointer update
     call W5100_WRITE_BUF
 
-    ; Update TX write pointer
-    pop bc
+    ; Step 7: Update TX write pointer (old_ptr + length)
+    pop bc              ; [6] length
     ld hl, S1_TX_WR0
     call W5100_READ_REG
-    ld h, a
-    inc hl
+    ld d, a
+    ld hl, S1_TX_WR1
     call W5100_READ_REG
-    ld l, a
-    add hl, bc
+    ld e, a             ; DE = current pointer
+    ex de, hl
+    add hl, bc          ; HL = new pointer
+    ex de, hl           ; DE = new pointer
 
-    push hl
     ld hl, S1_TX_WR0
-    pop de
     ld a, d
     call W5100_WRITE_REG
-    inc hl
+    ld hl, S1_TX_WR1
     ld a, e
     call W5100_WRITE_REG
 
-    ; Send command
+    ; Step 8: Send SEND command
     ld hl, S1_CR
     ld a, SCMD_SEND
     call W5100_WRITE_REG
     call WAIT_CMD_DONE_S1
 
-    pop hl
-    or a
+    or a                ; Clear carry = success
     ret
 
 ;-------------------------------------------------------
 ; RECVFR - Receive UDP datagram (KCNet API)
-; Entry: A = socket number
+; Entry: A = socket number (ignored, always socket 1)
 ;        HL = data buffer
-;        BC = max length
+;        BC = max length (unused - we read whatever is there)
 ;        DE = peer info buffer (8 bytes: 4 IP + 2 port + 2 size)
 ; Exit:  BC = actual bytes received
 ;        Carry clear if OK, set if error
+; Based on KCNet w5100-12.inc RECVFR implementation
+;
+; UDP RX buffer format (added by W5100S):
+;   [4 bytes source IP][2 bytes source port BE][2 bytes data size BE][data]
 ;-------------------------------------------------------
 RECVFR:
-    push hl
-    push de
+    push hl             ; [1] data buffer
+    push de             ; [2] peer info buffer
 
-    ; Check received size
+    ; Step 1: Check if any data received
     ld hl, S1_RX_RSR0
     call W5100_READ_REG
     ld d, a
-    inc hl
+    ld hl, S1_RX_RSR1
     call W5100_READ_REG
-    ld e, a
+    ld e, a             ; DE = bytes available
 
-    ; If no data, return 0
     ld a, d
     or e
     jr z, .recvfr_no_data
 
-    ; Read peer info from RX buffer (first 8 bytes)
-    ; Format: 4 byte IP, 2 byte port, 2 byte size
+    ; Step 2: Read RX read pointer
     ld hl, S1_RX_RD0
     call W5100_READ_REG
     ld d, a
-    inc hl
+    ld hl, S1_RX_RD1
     call W5100_READ_REG
-    ld e, a
+    ld e, a             ; DE = RX read pointer
 
-    ; Calculate physical address
-    push de
-    ld hl, S1_RX_MASK
+    push de             ; [3] save raw RX pointer
+
+    ; Step 3: Calculate physical address for header
+    ; physical = (pointer & 0x07FF) + 0x6800
     ld a, e
-    and l
+    and S1_RX_MASK & 0xFF
     ld l, a
     ld a, d
-    and h
-    ld h, a
+    and S1_RX_MASK >> 8
+    ld h, a             ; HL = masked offset
     ld de, S1_RX_BASE
-    add hl, de
-    ex de, hl
-    pop hl
+    add hl, de          ; HL = physical address
+    ex de, hl           ; DE = physical address
 
-    ; Read 8 byte header to peer info buffer
-    pop hl          ; HL = peer info buffer
-    pop de          ; DE = junk
-    push de
-    push hl
-
+    ; Step 4: Read 8-byte UDP header to peer info buffer
+    pop bc              ; [3] discard raw pointer (we'll recalc)
+    pop hl              ; [2] peer info buffer
+    pop bc              ; [1] discard data buffer (get later)
+    push bc             ; [1] put data buffer back
+    push hl             ; [2] put peer buf back
     ld bc, 8
-    call W5100_READ_BUF
+    call W5100_READ_BUF ; Reads 8 bytes to peer buf
+    ; HL now = peer buf + 8
 
-    ; Get actual data size from header
+    ; Step 5: Extract data size from peer buf bytes 6-7 (big-endian)
     dec hl
     dec hl
-    ld c, (hl)
+    ld b, (hl)          ; Size high byte
     inc hl
-    ld b, (hl)
+    ld c, (hl)          ; Size low byte - BC = payload size
+    push bc             ; [3] save payload size
 
-    ; Now read actual data
-    pop hl          ; Peer info
-    pop de          ; Data buffer
-    push de
-    push bc
-
-    ld hl, de       ; Data buffer
-    ; DE already points to next position in W5100
-    ; BC has length
-
-    call W5100_READ_BUF
-
-    ; Update RX read pointer (add 8 + data size)
-    pop bc
-    push bc
+    ; Step 6: Calculate physical address for payload
+    ; We need to re-read RX pointer and add 8
+    ld hl, S1_RX_RD0
+    call W5100_READ_REG
+    ld d, a
+    ld hl, S1_RX_RD1
+    call W5100_READ_REG
+    ld e, a             ; DE = RX read pointer
     ld hl, 8
-    add hl, bc
-
-    push hl
-    ld hl, S1_RX_RD0
-    call W5100_READ_REG
-    ld h, a
-    inc hl
-    call W5100_READ_REG
-    ld l, a
-    pop de
+    add hl, de          ; HL = pointer + 8
+    ; Now mask and add base
+    ld a, l
+    and S1_RX_MASK & 0xFF
+    ld e, a
+    ld a, h
+    and S1_RX_MASK >> 8
+    ld d, a
+    ld hl, S1_RX_BASE
     add hl, de
+    ex de, hl           ; DE = physical address of payload
 
-    push hl
+    ; Step 7: Read payload to data buffer
+    pop bc              ; [3] payload size
+    push bc             ; [3] save again
+    pop hl              ; [2] discard peer buf
+    pop hl              ; [1] data buffer
+    push bc             ; [1] save size for return
+    call W5100_READ_BUF
+
+    ; Step 8: Update RX read pointer (add 8 + payload size)
+    pop bc              ; [1] payload size
+    ld hl, 8
+    add hl, bc          ; HL = total consumed (header + payload)
+    push hl             ; [1] save total
+
     ld hl, S1_RX_RD0
-    pop de
+    call W5100_READ_REG
+    ld d, a
+    ld hl, S1_RX_RD1
+    call W5100_READ_REG
+    ld e, a             ; DE = current pointer
+    pop hl              ; [1] total consumed
+    add hl, de          ; HL = new pointer
+    ex de, hl           ; DE = new pointer
+
+    ld hl, S1_RX_RD0
     ld a, d
     call W5100_WRITE_REG
-    inc hl
+    ld hl, S1_RX_RD1
     ld a, e
     call W5100_WRITE_REG
 
-    ; Send RECV command
+    ; Step 9: Send RECV command to release buffer
     ld hl, S1_CR
     ld a, SCMD_RECV
     call W5100_WRITE_REG
     call WAIT_CMD_DONE_S1
 
-    pop bc
-    pop hl
-    or a
+    ; BC already has payload size from earlier - return it
+    or a                        ; Clear carry
     ret
 
 .recvfr_no_data:
-    ld bc, 0
-    or a
     pop de
     pop hl
+    ld bc, 0
+    or a
     ret
 
 ;-------------------------------------------------------
 ; SELECT - Check if data available (KCNet API)
-; Entry: A = socket number
+; Entry: A = socket number (must be preserved!)
 ;        E = select type (SL_RECV=1)
-; Exit:  Carry clear if data available, set if not
+; Exit:  A = socket number (preserved)
+;        Carry clear if data available, set if not
+; Based on KCNet implementation
 ;-------------------------------------------------------
 SL_RECV equ 1
 
 SELECT:
+    push af             ; CRITICAL: Preserve socket number in A
     push hl
+    push de
 
-    ; Check RX received size register
+    ; Read RX received size register (2 bytes, big-endian)
     ld hl, S1_RX_RSR0
     call W5100_READ_REG
-    ld h, a
-    inc hl
+    ld d, a             ; High byte in D
+    ld hl, S1_RX_RSR1
     call W5100_READ_REG
-    ld l, a
+    ld e, a             ; Low byte in E
 
-    ; If size > 0, data available
-    ld a, h
-    or l
+    ; Check if size > 0
+    ld a, d
+    or e
     jr z, .no_data
 
-    or a            ; Clear carry
-    jr .select_exit
+    ; Data available - restore and clear carry
+    pop de
+    pop hl
+    pop af              ; Restore socket number
+    or a                ; Clear carry
+    ret
 
 .no_data:
-    scf
-
-.select_exit:
+    ; No data - restore and set carry
+    pop de
     pop hl
+    pop af              ; Restore socket number
+    scf                 ; Set carry
     ret
 
 ;-------------------------------------------------------
@@ -1250,14 +1280,22 @@ S1_CR       equ 0x0501
 S1_IR       equ 0x0502
 S1_SR       equ 0x0503
 S1_PORT0    equ 0x0504
+S1_PORT1    equ 0x0505
 S1_DHAR0    equ 0x0506
 S1_DIPR0    equ 0x050C
+S1_DIPR1    equ 0x050D
+S1_DIPR2    equ 0x050E
+S1_DIPR3    equ 0x050F
 S1_DPORT0   equ 0x0510
+S1_DPORT1   equ 0x0511
 S1_TX_FSR0  equ 0x0520
 S1_TX_RD0   equ 0x0522
 S1_TX_WR0   equ 0x0524
+S1_TX_WR1   equ 0x0525
 S1_RX_RSR0  equ 0x0526
+S1_RX_RSR1  equ 0x0527
 S1_RX_RD0   equ 0x0528
+S1_RX_RD1   equ 0x0529
 
 ; Socket 1 TX/RX buffers
 S1_TX_BASE  equ 0x4800
