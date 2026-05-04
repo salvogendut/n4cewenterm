@@ -452,22 +452,28 @@ recv:
     pop hl
     ret
 
-; sendcmd - send command (compatibility stub)
+; sendcmd - send telnet command buffer (compatibility stub for negotiate.s)
+; Entry: HL = ignored (kept for call-site compatibility).
+;
+; FIX: The negotiate.s code builds packets as:
+;   sendsize+0 : length low byte
+;   sendsize+1 : length high byte (always 0)
+;   sendsize+2 : first data byte
+;   sendsize+3 : second data byte  ... etc.
+;
+; The old stub passed HL=cmdsend to NET_SEND, which is a *separate* 16-byte
+; buffer — only ever had a stale offset byte written into byte 0 and was
+; otherwise uninitialised. The actual telnet command bytes live at sendsize+2.
+;
+; sendcmd now reads the length from sendsize and sends from sendsize+2.
 sendcmd:
-    push hl
-    push bc
-
-    ; HL points to command buffer
-    ; Get length from sendsize
-    ld bc, (sendsize)
+    ld bc, (sendsize)   ; BC = byte count to send
+    ld hl, sendsize+2   ; HL = first byte of command data
     call NET_SEND
-
-    pop bc
-    pop hl
     ret
 
 ; Data areas for negotiate.s compatibility
-cmdsend:        ds 16
+cmdsend:        ds 16   ; kept so negotiate.s label references assemble; not used for sends
 sendsize:       dw 0
 
 ; dispdec - display decimal (stub for negotiate.s)

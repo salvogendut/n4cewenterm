@@ -348,58 +348,55 @@ NET_CONNECT:
 ; Entry: HL = buffer address
 ;        BC = length
 ; Exit:  Carry clear if OK, set if error
+; Fix: Rewrote with balanced stack. Old version had a
+;      spurious push de at entry that was never cleanly
+;      popped, corrupting the return address on ret.
 ;-------------------------------------------------------
 NET_SEND:
-    push hl
-    push de
-    push bc
+    push hl             ; [1] save data buffer pointer
+    push bc             ; [2] save length
 
-    ; Read TX write pointer
+    ; Read current TX write pointer into DE
     ld hl, S0_TX_WR0
     call W5100_READ_REG
     ld d, a
-    inc hl
+    ld hl, S0_TX_WR1
     call W5100_READ_REG
-    ld e, a
+    ld e, a             ; DE = current TX write pointer
 
-    ; Calculate physical address
-    push de
-    ld hl, S0_TX_MASK
+    ; Calculate physical W5100S TX buffer address:
+    ;   offset = write_ptr AND S0_TX_MASK  (keep low 11 bits)
+    ;   physical = S0_TX_BASE + offset
     ld a, e
-    and l
+    and S0_TX_MASK & 0xFF
     ld l, a
     ld a, d
-    and h
-    ld h, a
+    and S0_TX_MASK >> 8
+    ld h, a             ; HL = masked offset (0x0000 - 0x07FF)
     ld de, S0_TX_BASE
-    add hl, de
-    ld d, h
-    ld e, l
-    pop hl              ; HL = write pointer, DE = physical address
+    add hl, de          ; HL = physical W5100S address
+    ex de, hl           ; DE = physical address (for W5100_WRITE_BUF)
 
-    ; Get data pointer and length back
-    pop bc              ; Length
-    pop hl              ; Data pointer
-    push hl
-    push bc
+    ; Restore data pointer and length for the write
+    pop bc              ; [2] BC = length
+    pop hl              ; [1] HL = data buffer pointer
 
-    ; Write data to TX buffer
-    call W5100_WRITE_BUF
+    push bc             ; [3] save length for pointer update below
+    call W5100_WRITE_BUF    ; write BC bytes from (HL) to W5100S at DE
 
-    ; Update TX write pointer
-    pop bc              ; Get length
+    ; Update TX write pointer: new_ptr = old_ptr + length
+    pop bc              ; [3] BC = length
 
     ld hl, S0_TX_WR0
     call W5100_READ_REG
-    ld d, a             ; High byte
+    ld d, a
     ld hl, S0_TX_WR1
     call W5100_READ_REG
-    ld e, a             ; Low byte
-    ex de, hl           ; HL now has current write pointer
+    ld e, a             ; DE = current write pointer (re-read for safety)
+    ex de, hl           ; HL = write pointer
+    add hl, bc          ; HL = new write pointer
+    ex de, hl           ; DE = new write pointer
 
-    add hl, bc          ; Add length
-
-    ex de, hl           ; DE now has new pointer
     ld hl, S0_TX_WR0
     ld a, d
     call W5100_WRITE_REG
@@ -407,17 +404,14 @@ NET_SEND:
     ld a, e
     call W5100_WRITE_REG
 
-    ; Send SEND command
+    ; Issue SEND command and wait for completion
     ld hl, S0_CR
     ld a, SCMD_SEND
     call W5100_WRITE_REG
 
     call WAIT_CMD_DONE
 
-    or a                ; Clear carry
-
-    pop de              ; Clean up de (from line 382)
-    pop hl              ; Clean up hl (from line 352)
+    or a                ; Clear carry = success
     ret
 
 ;-------------------------------------------------------

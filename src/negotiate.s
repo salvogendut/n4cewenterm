@@ -62,12 +62,13 @@ check_negotiate:
 			inc		hl
 			ld		(hl),SE		; End of subnegotiation parameters.
 
-_wait_send:	ld		a,(ix)
-			cp		2			; send in progress?
-			jr		z,_wait_send
-			cp		0
-			call	nz,exit_close	
-			
+_wait_send:
+            ; FIX: The original M4EWENTERM checked (ix) for a socket-struct
+            ; "send in progress" flag. IX is never initialised in the N4C port,
+            ; so (ix) read garbage and call nz,exit_close fired on every single
+            ; telnet negotiation reply, silently dropping the connection.
+            ; NET_SEND is synchronous here — no background send state — so just
+            ; send directly.
 			ld		hl, cmdsend
 			call	sendcmd
 			ret
