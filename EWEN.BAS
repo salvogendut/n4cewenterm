@@ -12,9 +12,11 @@
 120 LOAD "charset.bin",&6800
 130 REM Check W5100S chip (do NOT reset - would lose NCFG settings!)
 135 PRINT "Checking Net4CPC W5100S..."
+140 REM Enable indirect bus mode + auto-increment (required for multi-byte I/O)
+141 OUT &FD20,3:REM Set MR = 3 (auto-increment + indirect bus mode)
 145 A=INP(&FD20)
 146 PRINT "W5100S Mode Register = ";A
-147 IF A=3 THEN PRINT "W5100S ready" ELSE PRINT "WARNING: Run NCFG.COM under CP/M first!"
+147 IF A=3 THEN PRINT "W5100S ready" ELSE PRINT "WARNING: Mode not set correctly!"
 148 PRINT "Press any key to continue..."
 149 CALL &BB18:REM Wait for keypress
 150 REM Configure W5100S network settings
