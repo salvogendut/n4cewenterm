@@ -1,5 +1,7 @@
 # N4CWENTERM
 
+Under developement. Name resolution does not work yet
+
 ## An ANSI Telnet client for the Amstrad CPC with Net4CPC
 
 *Built for time travel to 1985... with a Net4CPC board.*
