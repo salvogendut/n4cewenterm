@@ -989,34 +989,51 @@ SELECT:
 ;-------------------------------------------------------
 ; N_TIME - Read timer value (KCNet API)
 ; Entry: None
-; Exit:  HL = timer value in milliseconds (0-59999)
-; Uses CPC firmware frame flyback counter at 0xAC7E (16-bit, increments 50Hz)
+; Exit:  HL = timer value in milliseconds
+; Uses W5100S internal timer register at 0x0082 (counts in microseconds)
 ;-------------------------------------------------------
 N_TIME:
     push af
     push bc
-    push de
 
-    ; Read CPC firmware FRAME counter at 0xB200 (16-bit LE, 50Hz VSYNC ticks).
-    ; 0xAC7E was WRONG — it is in the middle of screen RAM (pixel data, not a timer).
-    ; 0xB200 is the correct firmware system variable for the frame tick counter.
-    ld hl, (0xB200)
+    ; Read W5100S timer register 0x0082 (16-bit, microseconds)
+    ld bc, W51HAD
+    xor a
+    out (c), a          ; High address = 0
+    inc c
+    ld a, 0x82
+    out (c), a          ; Low address = 0x82
+    inc c
+    in h, (c)           ; Read high byte
+    in l, (c)           ; Read low byte
 
-    ; Convert 50Hz ticks -> milliseconds (* 20). Result is modulo 65536,
-    ; which is fine: DQUER1 uses relative subtraction and N_XTIME handles wrap.
-    ld d, h
-    ld e, l
-    add hl, hl          ; * 2
-    add hl, hl          ; * 4
-    ld b, h
-    ld c, l             ; BC = * 4
-    add hl, hl          ; * 8
-    add hl, hl          ; * 16
-    add hl, bc          ; * 20
+    ; Convert microseconds to milliseconds (divide by 1000)
+    ld c, 10            ; Divisor = 10 to convert us/100 to ms/10 approximately
+    call DIVHLC
 
-    pop de
     pop bc
     pop af
+    ret
+
+;-------------------------------------------------------
+; DIVHLC - Divide HL by C
+; Entry: HL = dividend, C = divisor
+; Exit:  HL = quotient, A = remainder
+;-------------------------------------------------------
+DIVHLC:
+    xor a
+    ld b, 16
+.div_loop:
+    add hl, hl
+    rla
+    jr c, .sub
+    cp c
+    jr c, .next
+.sub:
+    sub c
+    inc l
+.next:
+    djnz .div_loop
     ret
 
 ;-------------------------------------------------------
