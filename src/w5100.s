@@ -603,6 +603,11 @@ SOCKET:
     ; Socket 0 is reserved for TCP (telnet)
     ld a, 1
 
+    ; Clear any previous interrupt flags
+    ld hl, S1_IR
+    ld a, 0xFF
+    call W5100_WRITE_REG
+
     ; Set socket mode
     ld hl, S1_MR
     ld a, d
@@ -1332,13 +1337,26 @@ S1_RX_MASK  equ 0x07FF
 WAIT_CMD_DONE_S1:
     push hl
     push af
+    push bc
+
+    ld bc, 5000         ; Timeout counter
 
 .wait_loop:
     ld hl, S1_CR
     call W5100_READ_REG
     or a
+    jr z, .cmd_done      ; Command completed
+
+    ; Decrement timeout
+    dec bc
+    ld a, b
+    or c
     jr nz, .wait_loop
 
+    ; Timeout - command didn't complete
+    ; Just continue anyway (don't hang forever)
+.cmd_done:
+    pop bc
     pop af
     pop hl
     ret
