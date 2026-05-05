@@ -1,0 +1,93 @@
+================================================================================
+CPC-READY FILE CHECKLIST
+================================================================================
+
+✅ ALL FILES NOW HAVE CORRECT CR+LF LINE ENDINGS FOR CPC COMPATIBILITY
+
+Files Ready to Copy to CPC:
+----------------------------
+
+1. BASIC Files:
+   ✓ src/EWEN.BAS              (CR+LF, verified)
+   
+2. Binary Files:
+   ✓ bin/EWENN4C.BIN           (13,234 bytes)
+   ✓ bin/CHARSET.BIN           (2,176 bytes)
+   
+3. Configuration:
+   ✓ N4C.CFG                   (CR+LF, verified)
+   
+Current Network Configuration:
+------------------------------
+IP Address: 192.168.1.100
+Netmask:    255.255.255.0
+Gateway:    192.168.1.1
+DNS Server: 192.168.1.1
+
+(Edit N4C.CFG to match your network before copying to CPC)
+
+Line Ending Verification:
+-------------------------
+$ file src/EWEN.BAS
+src/EWEN.BAS: ASCII text, with CRLF line terminators ✓
+
+$ file N4C.CFG
+N4C.CFG: ASCII text, with CRLF line terminators ✓
+
+Installation on CPC:
+-------------------
+1. Copy these 4 files to your CPC disk:
+   - EWEN.BAS
+   - EWENN4C.BIN
+   - CHARSET.BIN
+   - N4C.CFG (edit first if needed!)
+
+2. On CPC, run:
+   RUN"EWEN
+
+Expected Behavior:
+-----------------
+You should see:
+1. "Loading N4C-EWEN Terminal..."
+2. "N4C Network Initialization"
+3. Your network configuration displayed
+4. "Network Ready"
+5. Terminal prompt
+
+If you see "Line too long" error:
+---------------------------------
+The BASIC file has wrong line endings.
+Solution: Run ./fix_cpc_files.sh on your PC
+
+If you see "ERROR: N4C.CFG not found":
+-------------------------------------
+The config file is missing or has wrong name.
+Solution: Make sure N4C.CFG is on the same disk
+
+Maintenance Scripts:
+-------------------
+./fix_cpc_files.sh       - Fix line endings for all CPC files
+./create_config.sh       - Interactive config file creator
+
+Documentation:
+-------------
+CPC_FILE_FORMAT.md       - Complete guide to CPC file formats
+CONFIG.md                - Configuration file documentation
+BUILD_INSTRUCTIONS.md    - How to build from source
+
+================================================================================
+ISSUE RESOLVED: EWEN.BAS "Line too long" Error
+================================================================================
+
+Problem: 
+  EWEN.BAS had Unix line endings (LF only) which caused "Line too long" error
+  
+Solution:
+  Converted to DOS/CPC line endings (CR+LF)
+  
+Prevention:
+  - Use fix_cpc_files.sh before copying to CPC
+  - Check with: file src/EWEN.BAS
+  - Should show: "with CRLF line terminators"
+
+================================================================================

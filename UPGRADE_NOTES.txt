@@ -1,0 +1,118 @@
+================================================================================
+N4CEWENTERM - Configuration File Support Upgrade
+================================================================================
+
+NEW FEATURE: Network Configuration from N4C.CFG File
+
+All network settings (IP, Netmask, Gateway, DNS) are now read from an external
+configuration file instead of being hardcoded in EWEN.BAS. This makes it easy
+to change network settings and share the same config across all n4c-nettools
+applications.
+
+--------------------------------------------------------------------------------
+FILES CHANGED
+--------------------------------------------------------------------------------
+
+n4cewenterm/
+├── NEW: N4C.CFG                - Your network configuration (REQUIRED!)
+├── NEW: N4C.CFG.example        - Example configuration
+├── NEW: CONFIG.md              - Configuration documentation
+├── NEW: CHANGELOG.md           - Version history
+├── NEW: src/n4c-netinit.s      - Network initialization module
+├── MODIFIED: src/termN4C.s     - Includes n4c-netinit.s
+├── MODIFIED: src/main.s        - Calls N4C_INIT at startup
+├── MODIFIED: src/EWEN.BAS      - Simplified (no network config)
+└── MODIFIED: README.md         - Updated installation instructions
+
+n4c-nettools/
+├── NEW: src/n4c-netinit.s      - Shared initialization module
+├── NEW: N4C.CFG.example        - Example configuration
+├── NEW: docs/CONFIG.md         - Configuration documentation
+└── NEW: docs/N4C-NETINIT.md    - Developer documentation
+
+--------------------------------------------------------------------------------
+WHAT TO DO
+--------------------------------------------------------------------------------
+
+1. CREATE N4C.CFG FILE
+   Create a file named N4C.CFG with your network settings (4 lines):
+
+   192.168.1.100      <- Your CPC's IP address
+   255.255.255.0      <- Netmask (usually this for home networks)
+   192.168.1.1        <- Your router's IP address
+   192.168.1.1        <- DNS server (can be router or 8.8.8.8)
+
+2. COPY FILES TO CPC
+   Copy these files to your CPC disk:
+   - src/EWEN.BAS          (new simplified version)
+   - bin/EWENN4C.BIN       (new build with config support)
+   - bin/CHARSET.BIN       (unchanged)
+   - N4C.CFG               (your configuration!)
+
+3. RUN
+   RUN"EWEN
+
+   You'll see:
+   - Network configuration being loaded and displayed
+   - "Network Ready" message if successful
+   - Error message if N4C.CFG is missing or invalid
+
+--------------------------------------------------------------------------------
+OLD vs NEW
+--------------------------------------------------------------------------------
+
+OLD METHOD (hardcoded in BASIC):
+  - Edit EWEN.BAS lines 169-193 with your IP settings
+  - Different config for each application
+  - Need to edit BASIC code every time network changes
+
+NEW METHOD (config file):
+  - Edit N4C.CFG (simple 4-line text file)
+  - Same config file for all n4c-nettools apps
+  - No BASIC code editing ever!
+
+--------------------------------------------------------------------------------
+BINARY SIZE
+--------------------------------------------------------------------------------
+
+Old binary: 12,466 bytes
+New binary: 13,234 bytes (+768 bytes for config support)
+
+--------------------------------------------------------------------------------
+ERROR MESSAGES
+--------------------------------------------------------------------------------
+
+"ERROR: N4C.CFG not found"
+  → Create N4C.CFG file on your disk
+
+"ERROR: Failed to read config"
+  → Check file format (must be 4 lines with valid IP addresses)
+
+"ERROR: W5100S not responding"
+  → Check Net4CPC hardware connection
+
+--------------------------------------------------------------------------------
+TESTING
+--------------------------------------------------------------------------------
+
+To test your configuration:
+
+1. Create N4C.CFG on your CPC
+2. Run the terminal
+3. Check the displayed network settings match your config
+4. Try connecting to a server to verify network works
+
+--------------------------------------------------------------------------------
+DOCUMENTATION
+--------------------------------------------------------------------------------
+
+Read these files for more information:
+- CONFIG.md              - Configuration file format and examples
+- README.md              - Updated installation instructions
+- CHANGELOG.md           - Version history
+- BUILD_INSTRUCTIONS.md  - How to build from source
+
+For developers adding network support to new applications:
+- n4c-nettools/docs/N4C-NETINIT.md - How to use initialization module
+
+================================================================================
