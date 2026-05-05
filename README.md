@@ -107,3 +107,12 @@ Shared library: `../n4c-nettools/` (W5100S driver, DNS resolver)
 This app: Telnet-specific code only
 
 See README files in each directory for details.
+
+## License
+
+This project is licensed under the GNU General Public License v3.0 - see the [LICENSE](LICENSE) file for details.
+
+Based on:
+- Ewenterm (1991) - Original CPC terminal program
+- M4EWENTERM (2023) - M4 Board adaptation
+- Adapted for Net4CPC (2026)
