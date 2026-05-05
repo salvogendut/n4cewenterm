@@ -62,6 +62,8 @@ Create a file named `N4C.CFG` on your CPC with your network settings:
 192.168.1.1
 ```
 
+**Note:** File must have DOS-style line endings (CR+LF). See CONFIG.md for details.
+
 See `CONFIG.md` for detailed configuration instructions.
 
 ### 2. Copy Files to CPC

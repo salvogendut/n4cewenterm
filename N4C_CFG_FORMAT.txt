@@ -1,0 +1,119 @@
+================================================================================
+N4C.CFG File Format Specification
+================================================================================
+
+FILENAME: N4C.CFG
+
+FORMAT:   ASCII text with DOS/CP/M line endings (CR+LF)
+
+SIZE:     Approximately 60 bytes (varies with IP lengths)
+
+ENCODING: 7-bit ASCII (characters 0x20-0x7E)
+
+LINE ENDINGS: CR+LF (0x0D 0x0A)
+              - CR = Carriage Return (ASCII 13)
+              - LF = Line Feed (ASCII 10)
+              - This is the standard for DOS, Windows, and CP/M systems
+              - Required for proper reading on Amstrad CPC
+
+================================================================================
+FILE STRUCTURE
+================================================================================
+
+Line 1: IP Address      (format: xxx.xxx.xxx.xxx)
+Line 2: Netmask         (format: xxx.xxx.xxx.xxx)
+Line 3: Gateway         (format: xxx.xxx.xxx.xxx)
+Line 4: DNS Server      (format: xxx.xxx.xxx.xxx)
+
+Each line consists of:
+  - 4 decimal numbers (0-255)
+  - Separated by dots (.)
+  - Terminated by CR+LF
+
+================================================================================
+DEFAULT CONFIGURATION
+================================================================================
+
+192.168.1.100    <- IP Address
+255.255.255.0     <- Netmask
+192.168.1.1      <- Gateway
+192.168.1.1     <- DNS Server
+
+================================================================================
+HEX DUMP EXAMPLE
+================================================================================
+
+Offset    Hex                                          ASCII
+--------  -----------------------------------------------  ----------------
+00000000  31 39 32 2e 31 36 38 2e 36 38 2e 32 35 34 0d 0a  |192.168.1.100..|
+00000010  32 35 35 2e 32 35 35 2e 32 35 35 2e 30 0d 0a 31  |255.255.255.0..1|
+00000020  39 32 2e 31 36 38 2e 36 38 2e 31 0d 0a 31 39 32  |92.168.68.1..192|
+00000030  2e 31 36 38 2e 36 38 2e 35 34 0d 0a              |.168.68.54..|
+
+Note the 0d 0a (CR LF) at the end of each line.
+
+================================================================================
+CREATING THE FILE
+================================================================================
+
+ON WINDOWS:
+  Use Notepad or any text editor
+  File will automatically have CR+LF endings
+  
+ON LINUX/MAC:
+  Option 1: Use unix2dos utility
+    $ unix2dos N4C.CFG
+  
+  Option 2: Use the provided script
+    $ ./create_config.sh
+  
+  Option 3: Manual with sed
+    $ sed -i 's/$/\r/' N4C.CFG
+
+ON AMSTRAD CPC:
+  10 OPENOUT "N4C.CFG"
+  20 PRINT #9,"192.168.1.100"
+  30 PRINT #9,"255.255.255.0"
+  40 PRINT #9,"192.168.1.1"
+  50 PRINT #9,"192.168.1.1"
+  60 CLOSEOUT
+  
+  The CPC automatically adds CR+LF when using PRINT #
+
+================================================================================
+VERIFICATION
+================================================================================
+
+To verify your file has correct format:
+
+ON LINUX/MAC:
+  $ file N4C.CFG
+  Should show: "ASCII text, with CRLF line terminators"
+  
+  $ hexdump -C N4C.CFG | head
+  Should show 0d 0a at end of each line
+
+ON WINDOWS:
+  File should be approximately 60 bytes
+  Opening in Notepad should show 4 lines (not 1 long line)
+
+================================================================================
+COMMON MISTAKES
+================================================================================
+
+❌ WRONG: Unix line endings (LF only)
+   File created on Linux/Mac without conversion
+   CPC may not read lines correctly
+
+❌ WRONG: No line endings
+   All on one line
+   CPC will only read first IP
+
+❌ WRONG: Extra blank lines
+   CPC will try to parse empty lines as IPs
+
+✅ CORRECT: Exactly 4 lines, each with CR+LF
+   File size ~60 bytes
+   ASCII text with CRLF terminators
+
+================================================================================

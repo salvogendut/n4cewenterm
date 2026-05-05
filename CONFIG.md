@@ -42,8 +42,10 @@ The file contains exactly 4 lines, one value per line:
 
 1. Create a text file named `N4C.CFG`
 2. Enter your network settings (4 lines as shown above)
-3. Save as plain text (ASCII)
+3. Save as plain text (ASCII) with **DOS/Windows line endings** (CR+LF)
 4. Transfer to your CPC disk
+
+**Important:** The file must have DOS-style line endings (CR+LF, or `\r\n`). Most text editors can save in this format. Unix/Linux line endings (LF only) may not work correctly on the CPC.
 
 ### On CPC
 
