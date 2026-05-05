@@ -104,6 +104,7 @@ rsx_names
 rsx_data_area
     ds 4             ; 4 bytes for RSX workspace
 
+    include "n4c-netinit.s"
     include "main.s"
     include "ansiterm.s"
     include "screen.s"

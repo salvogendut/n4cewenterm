@@ -45,9 +45,32 @@ term
 	LD	HL,0			; No offset, just set mode
 	LD	(ScreenOffset),HL
 
+	; Initialize network from N4C.CFG
+	CALL	N4C_INIT
+	JP	C,term_exit		; Exit on error
+
     CALL	SetCursorInterupt	; Turn on interupt!
 
 	JP start_telnet
+
+term_exit:
+	; Network initialization failed, restore keys and exit
+	LD	A,(ESC_key)
+	LD	B,A
+	LD	A,66
+	CALL	KM_SET_TRANSLATE
+
+	LD	A,(COPY_key)
+	LD	B,A
+	LD	A,9
+	CALL	KM_SET_TRANSLATE
+
+	LD	A,(CLR_key)
+	LD	B,A
+	LD	A,16
+	CALL	KM_SET_TRANSLATE
+
+	RET
 
 
 	
