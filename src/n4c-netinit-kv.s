@@ -91,37 +91,38 @@ N4C_INIT:
     ld bc, n4c_dns
     call find_and_parse
 
-    ; Display configuration
-    ld hl, msg_ip
-    call n4c_print
-    ld hl, n4c_ip_addr
-    call print_ip
+    ; Display configuration (commented out for cleaner startup)
+    ; ld hl, msg_ip
+    ; call n4c_print
+    ; ld hl, n4c_ip_addr
+    ; call print_ip
 
-    ld hl, msg_netmask
-    call n4c_print
-    ld hl, n4c_netmask
-    call print_ip
+    ; ld hl, msg_netmask
+    ; call n4c_print
+    ; ld hl, n4c_netmask
+    ; call print_ip
 
-    ld hl, msg_gateway
-    call n4c_print
-    ld hl, n4c_gateway
-    call print_ip
+    ; ld hl, msg_gateway
+    ; call n4c_print
+    ; ld hl, n4c_gateway
+    ; call print_ip
 
-    ld hl, msg_dns
-    call n4c_print
-    ld hl, n4c_dns
-    call print_ip
+    ; ld hl, msg_dns
+    ; call n4c_print
+    ; ld hl, n4c_dns
+    ; call print_ip
 
     ; Initialize W5100S
     call n4c_init_w5100
     jr c, .w5100_error
 
-    ld hl, msg_ready
-    call n4c_print
+    ; Network initialization successful - no output for cleaner startup
+    ; ld hl, msg_ready
+    ; call n4c_print
 
-    ld hl, msg_press_key
-    call n4c_print
-    call 0xBB18             ; Wait for key
+    ; ld hl, msg_press_key
+    ; call n4c_print
+    ; call 0xBB18             ; Wait for key
 
     pop bc
     pop de

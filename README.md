@@ -15,7 +15,7 @@ N4CEWENTERM is a full-featured telnet client based on the classic Ewenterm (1991
 ## Network Library
 
 This application includes local copies of the n4c-nettools networking library:
-- `src/n4c-netinit.s` - Network initialization from config file
+- `src/n4c-netinit-kv.s` - Network initialization from config file (key=value format)
 - `src/w5100.s` - W5100S hardware driver (28KB)
 - `src/dns_simple.s` - DNS resolver (14KB)
 
@@ -56,15 +56,16 @@ This produces:
 Create a file named `N4C.CFG` on your CPC with your network settings:
 
 ```
-192.168.1.100
-255.255.255.0
-192.168.1.1
-192.168.1.1
+IP=192.168.1.100
+MASK=255.255.255.0
+GW=192.168.1.1
+DNS=192.168.1.1
 ```
 
-**Note:** File must have DOS-style line endings (CR+LF). See CONFIG.md for details.
+**Format:** Key=value pairs, one per line
+**Line endings:** DOS-style (CR+LF) required for Amstrad CPC
 
-See `CONFIG.md` for detailed configuration instructions.
+See `CONFIG.md` for detailed configuration instructions and troubleshooting.
 
 ### 2. Copy Files to CPC
 

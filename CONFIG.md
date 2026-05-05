@@ -11,30 +11,32 @@ N4CEWENTERM and all n4c-nettools applications use a simple text configuration fi
 
 ## Format
 
-The file contains exactly 4 lines, one value per line:
+The file uses **key=value** format with 4 configuration lines:
 
 ```
-<IP Address>
-<Netmask>
-<Gateway>
-<DNS Server>
+IP=<IP Address>
+MASK=<Netmask>
+GW=<Gateway>
+DNS=<DNS Server>
 ```
 
 ### Example: N4C.CFG
 
 ```
-192.168.1.100
-255.255.255.0
-192.168.1.1
-192.168.1.1
+IP=192.168.1.100
+MASK=255.255.255.0
+GW=192.168.1.1
+DNS=192.168.1.1
 ```
 
-### Line Descriptions
+### Configuration Keys
 
-1. **Line 1 - IP Address:** Your CPC's IP address on the network
-2. **Line 2 - Netmask:** Network subnet mask (usually 255.255.255.0 for home networks)
-3. **Line 3 - Gateway:** Your router's IP address
-4. **Line 4 - DNS Server:** DNS server IP (can be same as gateway, or use 8.8.8.8)
+- **IP** - Your CPC's IP address on the network
+- **MASK** - Network subnet mask (usually 255.255.255.0 for home networks)
+- **GW** - Gateway (your router's IP address)
+- **DNS** - DNS server IP (can be same as gateway, or use 8.8.8.8)
+
+**Note:** Keys are case-sensitive and must be uppercase.
 
 ## Creating the Configuration File
 
@@ -53,10 +55,10 @@ You can create the file directly on the CPC:
 
 ```basic
 10 OPENOUT "N4C.CFG"
-20 PRINT #9,"192.168.1.100"
-30 PRINT #9,"255.255.255.0"
-40 PRINT #9,"192.168.1.1"
-50 PRINT #9,"192.168.1.1"
+20 PRINT #9,"IP=192.168.1.100"
+30 PRINT #9,"MASK=255.255.255.0"
+40 PRINT #9,"GW=192.168.1.1"
+50 PRINT #9,"DNS=192.168.1.1"
 60 CLOSEOUT
 ```
 
@@ -81,34 +83,34 @@ When you run the terminal (or any n4c-nettools application):
 
 ### Home Network (Router at .1)
 ```
-192.168.1.100
-255.255.255.0
-192.168.1.1
-192.168.1.1
+IP=192.168.1.100
+MASK=255.255.255.0
+GW=192.168.1.1
+DNS=192.168.1.1
 ```
 
 ### Home Network (Router at .254)
 ```
-192.168.1.50
-255.255.255.0
-192.168.1.254
-192.168.1.254
+IP=192.168.1.50
+MASK=255.255.255.0
+GW=192.168.1.254
+DNS=192.168.1.254
 ```
 
 ### Using Google DNS
 ```
-192.168.1.100
-255.255.255.0
-192.168.1.1
-8.8.8.8
+IP=192.168.1.100
+MASK=255.255.255.0
+GW=192.168.1.1
+DNS=8.8.8.8
 ```
 
 ### Direct Cable Connection (No Router)
 ```
-192.168.0.2
-255.255.255.0
-192.168.0.1
-8.8.8.8
+IP=192.168.0.2
+MASK=255.255.255.0
+GW=192.168.0.1
+DNS=8.8.8.8
 ```
 
 ## Finding Your Network Settings
