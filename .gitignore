@@ -1,6 +1,7 @@
 # Build artifacts
 *.BIN
 *.bin
+bin/
 
 # Temporary/old documentation
 BUILD_SUCCESS.md
