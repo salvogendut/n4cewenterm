@@ -108,11 +108,27 @@ This app: Telnet-specific code only
 
 See README files in each directory for details.
 
+## Credits and Attribution
+
+This project builds upon and integrates code from several excellent projects:
+
+### Terminal Emulation
+- **[Ewenterm](https://ewen.mcneill.gen.nz/programs/cpc/ewenterm/)** (1991) - Original ANSI terminal emulator for Amstrad CPC by Ewen McNeill
+- **[M4EWENTERM](https://github.com/fergusleen/m4ewenterm)** (2023) - M4 Board adaptation by Fergus Leen
+- **Duke's M4 Telnet** - Additional telnet implementation for M4
+
+### Network Stack
+- **[KCNet for Net4CPC](https://github.com/salafek/KCNet-software-for-Net4CPC)** - DNS resolver and networking code by salafek
+- Adapted W5100S drivers and network protocols for Net4CPC hardware
+
+### Hardware
+- **[Net4CPC](https://github.com/salafek/Net4CPC)** - W5100S Ethernet interface board for Amstrad CPC by salafek
+
+### This Adaptation
+- Network configuration system (file-based config)
+- Integration of DNS resolution with telnet client
+- Debugging and adaptation for Net4CPC hardware (2026)
+
 ## License
 
 This project is licensed under the GNU General Public License v3.0 - see the [LICENSE](LICENSE) file for details.
-
-Based on:
-- Ewenterm (1991) - Original CPC terminal program
-- M4EWENTERM (2023) - M4 Board adaptation
-- Adapted for Net4CPC (2026)
