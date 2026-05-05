@@ -598,10 +598,17 @@ CHECK_CONNECTION:
 SOCKET:
     push hl
     push bc
+    push de
 
     ; For simplicity, use socket 1 for UDP (DNS)
     ; Socket 0 is reserved for TCP (telnet)
     ld a, 1
+
+    ; First, ensure socket is closed (in case left open from previous run)
+    ld hl, S1_CR
+    ld a, SCMD_CLOSE
+    call W5100_WRITE_REG
+    call WAIT_CMD_DONE_S1
 
     ; Set socket mode
     ld hl, S1_MR
@@ -614,6 +621,19 @@ SOCKET:
     ld a, SMODE_UDP
 .set_mode:
     call W5100_WRITE_REG
+
+    ; Set source port for UDP (use dynamic port)
+    push de
+    call N_DPRT         ; Get dynamic port in HL (network order)
+    ld d, h
+    ld e, l
+    ld hl, S1_PORT0
+    ld a, d
+    call W5100_WRITE_REG
+    inc hl
+    ld a, e
+    call W5100_WRITE_REG
+    pop de
 
     ; Open the socket
     ld hl, S1_CR
@@ -638,6 +658,7 @@ SOCKET:
     or a            ; Clear carry
 
 .socket_exit:
+    pop de
     pop bc
     pop hl
     ret
@@ -695,31 +716,52 @@ SENDTO:
     push bc
     push af
 
-    ; Set destination IP (4 bytes from DE)
-    push hl
-    push bc
-    ld hl, de
-    ld de, S1_DIPR0
-    ld bc, 4
-    call W5100_WRITE_BUF
-    pop bc
-    pop hl
+    ; Save peer data pointer for later use
+    ld (sendto_peer_ptr), de
 
-    ; Set destination port (2 bytes, already at DE+4)
+    ; Set destination IP (4 bytes) - write byte by byte
     push hl
     push bc
-    ld hl, de
-    ld de, 4
-    add hl, de
+    ld hl, (sendto_peer_ptr)
+    ; Byte 0
     ld a, (hl)
-    inc hl
-    ld de, S1_DPORT0
-    ex de, hl
+    push hl
+    ld hl, S1_DIPR0
     call W5100_WRITE_REG
+    pop hl
     inc hl
-    ex de, hl
+    ; Byte 1
     ld a, (hl)
-    ex de, hl
+    push hl
+    ld hl, S1_DIPR0 + 1
+    call W5100_WRITE_REG
+    pop hl
+    inc hl
+    ; Byte 2
+    ld a, (hl)
+    push hl
+    ld hl, S1_DIPR0 + 2
+    call W5100_WRITE_REG
+    pop hl
+    inc hl
+    ; Byte 3
+    ld a, (hl)
+    push hl
+    ld hl, S1_DIPR0 + 3
+    call W5100_WRITE_REG
+    pop hl
+    inc hl
+    ; HL now at peer_ptr + 4 (port)
+    ; Byte 4 (port MSB)
+    ld a, (hl)
+    push hl
+    ld hl, S1_DPORT0
+    call W5100_WRITE_REG
+    pop hl
+    inc hl
+    ; Byte 5 (port LSB)
+    ld a, (hl)
+    ld hl, S1_DPORT0 + 1
     call W5100_WRITE_REG
     pop bc
     pop hl
@@ -733,22 +775,57 @@ SENDTO:
     push hl
     push bc
 
+    ; Check socket status first
+    ld hl, S1_SR
+    call W5100_READ_REG
+    cp SSTAT_UDP
+    jp nz, .sendto_error    ; Socket not in UDP state
+
+    ; Wait for TX buffer to have enough free space
+    ld hl, 1000             ; Timeout counter (reduced for faster failure)
+.wait_tx_free:
+    push hl                 ; Save timeout counter
+    push bc
+    ld hl, S1_TX_FSR0
+    call W5100_READ_REG
+    ld h, a
+    ld hl, S1_TX_FSR0 + 1
+    call W5100_READ_REG
+    ld l, a
+    ; HL now has free space, BC on stack has data length
+    pop bc
+    push bc
+    ; Compare: is HL >= BC?
+    or a
+    sbc hl, bc
+    pop bc
+    pop hl                  ; Restore timeout counter
+    jp nc, .tx_ready        ; If no carry, HL >= BC, ready
+
+    ; Decrement timeout counter
+    dec hl
+    ld a, h
+    or l
+    jr nz, .wait_tx_free    ; Continue if not zero
+    ; Timeout!
+    jp .sendto_error
+
+.tx_ready:
     ; Write data to TX buffer
     ld hl, S1_TX_WR0
     call W5100_READ_REG
     ld d, a
-    inc hl
+    ld hl, S1_TX_WR0 + 1
     call W5100_READ_REG
     ld e, a
 
     ; Calculate physical address
     push de
-    ld hl, S1_TX_MASK
     ld a, e
-    and l
+    and S1_TX_MASK & 0xFF
     ld l, a
     ld a, d
-    and h
+    and S1_TX_MASK >> 8
     ld h, a
     ld de, S1_TX_BASE
     add hl, de
@@ -769,7 +846,7 @@ SENDTO:
     ld hl, S1_TX_WR0
     call W5100_READ_REG
     ld h, a
-    inc hl
+    ld hl, S1_TX_WR0 + 1
     call W5100_READ_REG
     ld l, a
     add hl, bc
@@ -789,6 +866,52 @@ SENDTO:
     call W5100_WRITE_REG
     call WAIT_CMD_DONE_S1
 
+    ; Wait for SENDOK or TIMEOUT interrupt
+    push bc
+    ld bc, 1000             ; Timeout counter (reduced)
+.wait_send_ir:
+    ld hl, S1_IR
+    call W5100_READ_REG
+    and 0x18                ; Check SENDOK (0x10) or TIMEOUT (0x08)
+    jr nz, .got_interrupt
+
+    ; Decrement timeout
+    dec bc
+    ld a, b
+    or c
+    jr nz, .wait_send_ir    ; Continue if not zero
+
+    ; Timeout - no interrupt received
+    pop bc
+    pop hl
+    scf
+    ret
+
+.got_interrupt:
+    ; Clear the interrupt
+    push af
+    ld hl, S1_IR
+    call W5100_WRITE_REG    ; Write back to clear
+    pop af
+
+    ; Check if it was SENDOK or TIMEOUT
+    and 0x10                ; Check SENDOK bit
+    pop bc
+    jr nz, .send_ok
+
+    ; TIMEOUT - return error
+    pop hl
+    scf
+    ret
+
+.sendto_error:
+    ; Error during sendto (socket wrong state or TX timeout)
+    pop bc
+    pop hl
+    scf
+    ret
+
+.send_ok:
     pop hl
     or a
     ret
@@ -803,114 +926,8 @@ SENDTO:
 ;        Carry clear if OK, set if error
 ;-------------------------------------------------------
 RECVFR:
-    push hl
-    push de
-
-    ; Check received size
-    ld hl, S1_RX_RSR0
-    call W5100_READ_REG
-    ld d, a
-    inc hl
-    call W5100_READ_REG
-    ld e, a
-
-    ; If no data, return 0
-    ld a, d
-    or e
-    jr z, .recvfr_no_data
-
-    ; Read peer info from RX buffer (first 8 bytes)
-    ; Format: 4 byte IP, 2 byte port, 2 byte size
-    ld hl, S1_RX_RD0
-    call W5100_READ_REG
-    ld d, a
-    inc hl
-    call W5100_READ_REG
-    ld e, a
-
-    ; Calculate physical address
-    push de
-    ld hl, S1_RX_MASK
-    ld a, e
-    and l
-    ld l, a
-    ld a, d
-    and h
-    ld h, a
-    ld de, S1_RX_BASE
-    add hl, de
-    ex de, hl
-    pop hl
-
-    ; Read 8 byte header to peer info buffer
-    pop hl          ; HL = peer info buffer
-    pop de          ; DE = junk
-    push de
-    push hl
-
-    ld bc, 8
-    call W5100_READ_BUF
-
-    ; Get actual data size from header
-    dec hl
-    dec hl
-    ld c, (hl)
-    inc hl
-    ld b, (hl)
-
-    ; Now read actual data
-    pop hl          ; Peer info
-    pop de          ; Data buffer
-    push de
-    push bc
-
-    ld hl, de       ; Data buffer
-    ; DE already points to next position in W5100
-    ; BC has length
-
-    call W5100_READ_BUF
-
-    ; Update RX read pointer (add 8 + data size)
-    pop bc
-    push bc
-    ld hl, 8
-    add hl, bc
-
-    push hl
-    ld hl, S1_RX_RD0
-    call W5100_READ_REG
-    ld h, a
-    inc hl
-    call W5100_READ_REG
-    ld l, a
-    pop de
-    add hl, de
-
-    push hl
-    ld hl, S1_RX_RD0
-    pop de
-    ld a, d
-    call W5100_WRITE_REG
-    inc hl
-    ld a, e
-    call W5100_WRITE_REG
-
-    ; Send RECV command
-    ld hl, S1_CR
-    ld a, SCMD_RECV
-    call W5100_WRITE_REG
-    call WAIT_CMD_DONE_S1
-
-    pop bc
-    pop hl
-    or a
-    ret
-
-.recvfr_no_data:
-    ld bc, 0
-    or a
-    pop de
-    pop hl
+    ; Stub - not used, using direct RX read instead
+    scf
     ret
 
 ;-------------------------------------------------------
@@ -923,28 +940,34 @@ SL_RECV equ 1
 
 SELECT:
     push hl
+    push af
+    push bc
 
-    ; Check RX received size register
+    ; Check RX received size register (2 bytes, MSB first)
     ld hl, S1_RX_RSR0
     call W5100_READ_REG
-    ld h, a
-    inc hl
+    ld b, a             ; B = MSB
+    ld hl, S1_RX_RSR0 + 1
     call W5100_READ_REG
-    ld l, a
+    ld c, a             ; C = LSB
 
     ; If size > 0, data available
-    ld a, h
-    or l
+    ld a, b
+    or c
     jr z, .no_data
 
+    pop bc
+
+    pop af
+    pop hl
     or a            ; Clear carry
-    jr .select_exit
+    ret
 
 .no_data:
-    scf
-
-.select_exit:
+    pop bc
+    pop af
     pop hl
+    scf
     ret
 
 ;-------------------------------------------------------
@@ -1268,13 +1291,32 @@ S1_RX_MASK  equ 0x07FF
 WAIT_CMD_DONE_S1:
     push hl
     push af
+    push bc
+
+    ld bc, 1000             ; Timeout counter (reduced)
 
 .wait_loop:
     ld hl, S1_CR
     call W5100_READ_REG
     or a
-    jr nz, .wait_loop
+    jr z, .cmd_done
 
+    ; Decrement timeout
+    dec bc
+    ld a, b
+    or c
+    jr nz, .wait_loop       ; Continue if not zero
+
+    ; Timeout - command never completed
+    ; Continue anyway (might cause issues but better than hanging)
+
+.cmd_done:
+    pop bc
     pop af
     pop hl
     ret
+
+;-------------------------------------------------------
+; SENDTO variables
+;-------------------------------------------------------
+sendto_peer_ptr:    dw 0        ; Saved peer data pointer

@@ -1,0 +1,22 @@
+# Build artifacts
+*.BIN
+*.bin
+bin/
+
+# Temporary/old documentation
+BUILD_SUCCESS.md
+DNS_FILES_SUMMARY.md
+DNS_IMPLEMENTATION.md
+DNS_SETUP.md
+PORTING_NOTES.md
+QUICK_START.md
+
+# Editor/IDE files
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Backup files
+*.bak
+*.old

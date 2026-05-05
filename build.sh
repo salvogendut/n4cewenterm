@@ -3,43 +3,54 @@
 # Requires RASM assembler (www.roudoudou.com/rasm)
 
 # Try to find RASM
-if command -v rasm &> /dev/null; then
+if [ -n "$RASM" ]; then
+    # RASM environment variable is set
+    echo "Using RASM from environment: $RASM"
+elif command -v rasm &> /dev/null; then
+    # rasm is in PATH
     RASM=rasm
-elif [ -f "../../../Dev/LEISURE/rasm/rasm.exe" ]; then
-    RASM="../../../Dev/LEISURE/rasm/rasm.exe"
-elif [ -f "../../rasm/rasm.exe" ]; then
-    RASM="../../rasm/rasm.exe"
 else
     echo "ERROR: RASM assembler not found!"
-    echo "Please install RASM or set RASM environment variable"
+    echo "Please either:"
+    echo "  1. Install RASM and add to PATH, or"
+    echo "  2. Set RASM environment variable to rasm executable path"
+    echo ""
+    echo "Example: export RASM=/path/to/rasm"
     exit 1
 fi
 
 echo "Building N4CWENTERM..."
 echo "Using: $RASM"
 
+# Create bin directory if it doesn't exist
+mkdir -p bin
+
 # Assemble the character set
-$RASM src/charset.s -o CHARSET.BIN
+$RASM src/charset.s
 if [ $? -ne 0 ]; then
     echo "Character set build failed!"
     exit 1
 fi
 
 # Assemble the main binary
-$RASM src/termN4C.s -o EWENN4C.BIN
+$RASM src/termN4C.s
 
 if [ $? -eq 0 ]; then
+    # Move binaries to bin directory (RASM SAVE directive outputs to current dir)
+    mv CHARSET.BIN bin/ 2>/dev/null
+    mv EWENN4C.BIN bin/ 2>/dev/null
+
     echo ""
     echo "Build successful!"
     echo ""
-    echo "Files generated:"
-    echo "  - EWENN4C.BIN (terminal binary, $(stat -c%s EWENN4C.BIN) bytes)"
-    echo "  - CHARSET.BIN (character set, $(stat -c%s CHARSET.BIN) bytes)"
+    echo "Files generated in bin/:"
+    echo "  - EWENN4C.BIN (terminal binary, $(stat -c%s bin/EWENN4C.BIN) bytes)"
+    echo "  - CHARSET.BIN (character set, $(stat -c%s bin/CHARSET.BIN) bytes)"
     echo ""
     echo "Files to copy to your CPC:"
     echo "  1. src/EWEN.BAS"
-    echo "  2. EWENN4C.BIN"
-    echo "  3. CHARSET.BIN"
+    echo "  2. bin/EWENN4C.BIN"
+    echo "  3. bin/CHARSET.BIN"
     echo ""
     echo "Then on CPC: RUN\"EWEN"
 else
