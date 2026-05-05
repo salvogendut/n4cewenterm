@@ -276,19 +276,11 @@ dns_resolve:
     push de
     push bc
 
-    ; Allocate MSG buffer (534 bytes)
-    ld hl, dns_msgbuf
-    ld de, lookup_name
-
-    ; Call KCNet DNS client
-    call GHBNAM
+    ; Call our DNS resolver
+    ld hl, lookup_name  ; HL = hostname
+    ld de, ip_addr      ; DE = result buffer
+    call RESOLVE_HOSTNAME
     jr c, .dns_error
-
-    ; Copy result to ip_addr
-    ld hl, lookup_name  ; Result is in lookup_name
-    ld de, ip_addr
-    ld bc, 4
-    ldir
 
     or a                ; Clear carry
     xor a               ; A = 0 for success
@@ -300,9 +292,9 @@ dns_resolve:
     ret
 
 .dns_error:
-    ; A already has error code from GHBNAM
+    ; A already has error code from RESOLVE_HOSTNAME
     push af
-    ld hl, msgdebug_ghbnam_err
+    ld hl, msgdebug_resolve_err
     call disptextz
     pop af
     push af
@@ -639,7 +631,6 @@ crlf:
 ; Buffers
 buf:            ds 128
 lookup_name:    ds 256
-dns_msgbuf:     ds 534          ; DNS message buffer (534 bytes minimum)
 
 msgresolve:     db "Resolving: ",0
 msgok:          db " OK",0
@@ -649,8 +640,8 @@ msgerror_code:  db "Error code: ",0
 msgdebug_input: db "[DEBUG] Input: ",0
 msgdebug_dns:   db "[DEBUG] Domain lookup mode",0
 msgdebug_parseip: db "[DEBUG] IP parsing mode",0
-msgdebug_calling_dns: db "[DEBUG] Calling GHBNAM...",0
-msgdebug_ghbnam_err: db "[DEBUG] GHBNAM returned error: ",0
+msgdebug_calling_dns: db "[DEBUG] Calling DNS resolver...",0
+msgdebug_resolve_err: db "[DEBUG] DNS resolver returned error: ",0
 msgdebug_port_specified: db "[DEBUG] Port specified in input",10,13,0
 msgdebug_port_default: db "[DEBUG] Using default port 23",0
 msgdebug_port_value: db "[DEBUG] Parsed port value: ",0

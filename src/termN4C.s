@@ -108,7 +108,7 @@ rsx_data_area
     include "ansiterm.s"
     include "screen.s"
     include "w5100.s"
-    include "dnsc-11.s"
+    include "dns_simple.s"
     include "urlmenu_n4c.s"
     include "telnetfunc_n4c.s"
     include "negotiate.s"

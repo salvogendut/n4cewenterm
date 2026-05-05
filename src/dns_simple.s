@@ -67,6 +67,9 @@ RESOLVE_HOSTNAME:
     ld a, 5
     ld (dns_debug_marker), a
 
+    ; Save result buffer pointer (DE will be destroyed by SOCKET call)
+    ld (dns_result_ptr), de
+
     ; Open UDP socket
     ld a, 0xFF                  ; Auto-allocate
     ld d, SK_DGRAM              ; UDP mode
@@ -190,10 +193,8 @@ RESOLVE_HOSTNAME:
     ld (dns_debug_marker), a
 
     ; Parse DNS response to extract IP
-    ; Stack has: [BC] [DE=result] from initial push
-    ; But we need DE = result buffer for dns_parse_response
-    ; Get it by reading from what we saved earlier
-    ld de, result_ip_temp       ; Use temp storage for result
+    ; Restore the result buffer pointer that was passed in
+    ld de, (dns_result_ptr)
     call dns_parse_response
     jp c, .error_parse
 
@@ -581,6 +582,7 @@ dns_socket:         db 0
 dns_send_time:      dw 0
 dns_timeout_time:   dw 0
 dns_query_len:      dw 0
+dns_result_ptr:     dw 0
 dns_debug_loops:    dw 0
 dns_debug_time_start: dw 0
 dns_debug_time_end:   dw 0
