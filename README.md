@@ -2,6 +2,10 @@
 
 An ANSI terminal emulator and Telnet client for the Amstrad CPC with Net4CPC (W5100S Ethernet) hardware.
 
+**⚠️ ALPHA SOFTWARE - NOT FOR PRODUCTION USE** 
+
+This is experimental, early-stage development code. Features are actively being developed and tested. Expect bugs, crashes, and incomplete functionality. **Not suitable for any serious or production use.** Use at your own risk for testing and experimentation only.
+
 ## Overview
 
 N4CEWENTERM is a full-featured telnet client based on the classic Ewenterm (1991) and M4EWENTERM (2023), adapted for the Net4CPC hardware. It supports:
