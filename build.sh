@@ -38,21 +38,21 @@ $RASM src/termN4C.s
 if [ $? -eq 0 ]; then
     # Move binaries to bin directory (RASM SAVE directive outputs to current dir)
     mv CHARSET.BIN bin/ 2>/dev/null
-    mv EWENN4C.BIN bin/ 2>/dev/null
+    mv N4CEWEN.BIN bin/ 2>/dev/null
 
     echo ""
     echo "Build successful!"
     echo ""
     echo "Files generated in bin/:"
-    echo "  - EWENN4C.BIN (terminal binary, $(stat -c%s bin/EWENN4C.BIN) bytes)"
+    echo "  - N4CEWEN.BIN (terminal binary, $(stat -c%s bin/N4CEWEN.BIN) bytes)"
     echo "  - CHARSET.BIN (character set, $(stat -c%s bin/CHARSET.BIN) bytes)"
     echo ""
     echo "Files to copy to your CPC:"
-    echo "  1. src/EWEN.BAS"
-    echo "  2. bin/EWENN4C.BIN"
+    echo "  1. src/N4CEWEN.BAS"
+    echo "  2. bin/N4CEWEN.BIN"
     echo "  3. bin/CHARSET.BIN"
     echo ""
-    echo "Then on CPC: RUN\"EWEN"
+    echo "Then on CPC: RUN\"N4CEWEN"
 else
     echo "Build failed!"
     exit 1

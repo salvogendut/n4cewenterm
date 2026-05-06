@@ -1,3 +1,5 @@
+![Example Image](telnet.png)
+
 # N4CEWENTERM - ANSI Telnet Client for Amstrad CPC
 
 An ANSI terminal emulator and Telnet client for the Amstrad CPC with Net4CPC (W5100S Ethernet) hardware.
@@ -50,7 +52,7 @@ See `CONFIG.md` for full configuration documentation.
 ```
 
 This produces:
-- `EWENN4C.BIN` - Terminal program (12466 bytes)
+- `N4CEWEN.BIN` - Terminal program (12466 bytes)
 - `CHARSET.BIN` - Character set (2176 bytes)
 
 ## Installation
@@ -74,15 +76,15 @@ See `CONFIG.md` for detailed configuration instructions and troubleshooting.
 ### 2. Copy Files to CPC
 
 Copy these files to your CPC:
-1. `src/EWEN.BAS` - BASIC loader
-2. `bin/EWENN4C.BIN` - Terminal program
+1. `src/N4CEWEN.BAS` - BASIC loader
+2. `bin/N4CEWEN.BIN` - Terminal program
 3. `bin/CHARSET.BIN` - Character set
 4. `N4C.CFG` - Your network configuration
 
 ### 3. Run
 
 ```basic
-RUN"EWEN
+RUN"N4CEWEN
 ```
 
 The program will:

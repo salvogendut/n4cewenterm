@@ -44,19 +44,19 @@ After a successful build, you'll find:
 ```
 bin/
 ├── CHARSET.BIN  - Character set (2176 bytes)
-└── EWENN4C.BIN  - Terminal binary (12466 bytes)
+└── N4CEWEN.BIN  - Terminal binary (12466 bytes)
 ```
 
 ## Installing on CPC
 
 Copy these files to your Amstrad CPC:
-1. `src/EWEN.BAS` - BASIC loader
-2. `bin/EWENN4C.BIN` - Main program
+1. `src/N4CEWEN.BAS` - BASIC loader
+2. `bin/N4CEWEN.BIN` - Main program
 3. `bin/CHARSET.BIN` - Character set
 
 Then run on your CPC:
 ```basic
-RUN"EWEN
+RUN"N4CEWEN
 ```
 
 ## Troubleshooting

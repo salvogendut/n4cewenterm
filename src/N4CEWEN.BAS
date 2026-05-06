@@ -7,7 +7,7 @@
 70 MEMORY &6800-1
 80 LOAD "charset.bin",&6800
 90 REM Load terminal binary
-100 LOAD "EWENN4C.BIN",&7000
+100 LOAD "N4CEWEN.BIN",&7000
 110 REM Install RSX
 120 CALL &7000
 130 REM Setup screen

@@ -12,13 +12,13 @@
 - Error handling for missing or invalid config files
 
 ### Changed
-- **EWEN.BAS simplified** - Removed all network configuration code
+- **N4CEWEN.BAS simplified** - Removed all network configuration code
 - **main.s** - Added N4C_INIT call at startup
 - **termN4C.s** - Included n4c-netinit.s module
 - Binary size increased from 12466 to 13234 bytes (+768 bytes for config module)
 
 ### Removed
-- Hardcoded network settings from EWEN.BAS
+- Hardcoded network settings from N4CEWEN.BAS
 - Manual W5100S register configuration in BASIC
 - Network verification code in BASIC
 
@@ -31,7 +31,7 @@
 
 ### Migration from Old Version
 
-**Old method (EWEN.BAS lines 169-193):**
+**Old method (N4CEWEN.BAS lines 169-193):**
 ```basic
 169 REM Write IP: 192.168.68.254
 170 OUT &FD21,0:OUT &FD22,&F:OUT &FD23,192
@@ -50,24 +50,24 @@
 ### Files to Copy to CPC
 
 **Before:**
-- EWEN.BAS (with your settings edited)
-- EWENN4C.BIN
+- N4CEWEN.BAS (with your settings edited)
+- N4CEWEN.BIN
 - CHARSET.BIN
 
 **After:**
-- EWEN.BAS (no editing needed!)
-- EWENN4C.BIN
+- N4CEWEN.BAS (no editing needed!)
+- N4CEWEN.BIN
 - CHARSET.BIN
 - N4C.CFG (your settings)
 
 ### Upgrading
 
 1. Create `N4C.CFG` with your network settings (4 lines)
-2. Copy new EWEN.BAS, EWENN4C.BIN, CHARSET.BIN to your disk
+2. Copy new N4CEWEN.BAS, N4CEWEN.BIN, CHARSET.BIN to your disk
 3. Copy N4C.CFG to your disk
-4. Run as normal with `RUN"EWEN`
+4. Run as normal with `RUN"N4CEWEN`
 
-Your old EWEN.BAS with hardcoded settings will no longer work with the new binary.
+Your old N4CEWEN.BAS with hardcoded settings will no longer work with the new binary.
 
 ## Previous Versions
 
