@@ -12,7 +12,7 @@ ERROR: N4C.CFG not found
 ### 1. File Not on Disk
 **Most Common Issue**
 
-The N4C.CFG file must be on the **same disk** as EWENN4C.BIN.
+The N4C.CFG file must be on the **same disk** as N4CEWEN.BIN.
 
 **Check:**
 ```basic
@@ -133,8 +133,8 @@ If you can't get the file to work, you can hardcode the settings temporarily to 
 
 Make sure ALL these files are on your CPC disk:
 
-- [ ] EWEN.BAS
-- [ ] EWENN4C.BIN
+- [ ] N4CEWEN.BAS
+- [ ] N4CEWEN.BIN
 - [ ] CHARSET.BIN
 - [ ] N4C.CFG ← **Don't forget this one!**
 
@@ -170,7 +170,7 @@ Run this, then try `|TERM` again.
 10 PRINT "Checking for required files..."
 20 OPENIN "N4C.CFG":IF EOF THEN PRINT "N4C.CFG: NOT FOUND":GOTO 40 ELSE PRINT "N4C.CFG: OK"
 30 CLOSEIN
-40 OPENIN "EWENN4C.BIN":IF EOF THEN PRINT "EWENN4C.BIN: NOT FOUND":GOTO 60 ELSE PRINT "EWENN4C.BIN: OK"
+40 OPENIN "N4CEWEN.BIN":IF EOF THEN PRINT "N4CEWEN.BIN: NOT FOUND":GOTO 60 ELSE PRINT "N4CEWEN.BIN: OK"
 50 CLOSEIN
 60 OPENIN "CHARSET.BIN":IF EOF THEN PRINT "CHARSET.BIN: NOT FOUND":GOTO 80 ELSE PRINT "CHARSET.BIN: OK"
 70 CLOSEIN

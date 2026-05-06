@@ -115,4 +115,4 @@ rsx_data_area
     include "negotiate.s"
     include "data.s"
 
-SAVE 'EWENN4C.BIN',#7000,$-#7000,AMSDOS
+SAVE 'N4CEWEN.BIN',#7000,$-#7000,AMSDOS
