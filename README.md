@@ -74,7 +74,7 @@ See `CONFIG.md` for detailed configuration instructions and troubleshooting.
 ### 2. Copy Files to CPC
 
 Copy these files to your CPC:
-1. `src/EWEN.BAS` - BASIC loader
+1. `src/EWENN4C.BAS` - BASIC loader
 2. `bin/EWENN4C.BIN` - Terminal program
 3. `bin/CHARSET.BIN` - Character set
 4. `N4C.CFG` - Your network configuration
@@ -82,7 +82,7 @@ Copy these files to your CPC:
 ### 3. Run
 
 ```basic
-RUN"EWEN
+RUN"EWENN4C
 ```
 
 The program will:

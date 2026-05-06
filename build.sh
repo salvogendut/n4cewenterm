@@ -48,11 +48,11 @@ if [ $? -eq 0 ]; then
     echo "  - CHARSET.BIN (character set, $(stat -c%s bin/CHARSET.BIN) bytes)"
     echo ""
     echo "Files to copy to your CPC:"
-    echo "  1. src/EWEN.BAS"
+    echo "  1. src/EWENN4C.BAS"
     echo "  2. bin/EWENN4C.BIN"
     echo "  3. bin/CHARSET.BIN"
     echo ""
-    echo "Then on CPC: RUN\"EWEN"
+    echo "Then on CPC: RUN\"EWENN4C"
 else
     echo "Build failed!"
     exit 1

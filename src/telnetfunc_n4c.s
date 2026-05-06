@@ -88,6 +88,14 @@ connect_ok:
     ld hl, msgready
     call disptextz
 
+    ; Initialize telnet state machine
+    xor a
+    ld (telnet_iac_state), a
+
+    ; Initialize local echo as enabled (server will negotiate if needed)
+    ld a, 1
+    ld (local_echo_enabled), a
+
 mainloop:
     ; Check for received data
     ld bc, 1
@@ -124,10 +132,19 @@ no_pause:
     cp 0xD
     jr z, is_enter
 
-    ; Regular character - echo it
+    ; Check if local echo is enabled
+    push af
+    ld a, (local_echo_enabled)
+    or a
+    jp z, no_local_echo
+
+    ; Local echo enabled - display the character
+    pop af
     push af
     ld b, a
     call printchar
+
+no_local_echo:
     pop af
 
     ; Send single character
@@ -137,6 +154,11 @@ no_pause:
     jp mainloop
 
 is_enter:
+    ; Check if local echo is enabled
+    ld a, (local_echo_enabled)
+    or a
+    jp z, no_echo_enter
+
     ; Echo CR+LF locally
     ld a, 13
     ld b, a
@@ -145,6 +167,7 @@ is_enter:
     ld b, a
     call printchar
 
+no_echo_enter:
     ; Send CR+LF to server
     ld hl, sendtext
     ld (hl), 0xD
@@ -183,24 +206,140 @@ recv_noblock2:
     ld bc, 1            ; Read 1 byte at a time
     call NET_RECV
 
-    ; Check if got data
+    ; Check if got data - CRITICAL: return immediately if no data
+    ; Don't process state machine on empty reads!
     ld a, b
     or c
-    jr z, recv_done     ; No data
+    jp z, recv_done     ; No data - return WITHOUT processing state
 
-    ; Got data - display it
+    ; Got data - process with state machine AND respond to IAC
     ld hl, recvbuf
     ld a, (hl)
 
-    cp CMD              ; Telnet command?
-    jr nz, not_tel_cmd
-    call negotiate
-    jr recv_done
+    ; Check telnet state machine
+    ld hl, telnet_iac_state
+    ld b, (hl)          ; B = state (0=normal, 1=got IAC, 2=got IAC+cmd)
 
-not_tel_cmd:
-    ; Display the character (printchar expects char in B)
+    ; State 0: Normal data
+    ld a, b
+    or a
+    jr nz, iac_state_1_or_2
+
+    ; Normal state - check if this is IAC (0xFF)
+    ld a, (recvbuf)
+    cp CMD
+    jr nz, normal_char
+
+    ; Got IAC - enter state 1
+    ld (hl), 1
+    jp recv_done
+
+normal_char:
+    ; Display normal character
     ld b, a
     call printchar
+    jp recv_done
+
+iac_state_1_or_2:
+    ; State 1: Got IAC, waiting for command (WILL/WONT/DO/DONT)
+    ld a, b
+    cp 1
+    jr nz, iac_state_2
+
+    ; This byte is the telnet command - save it and go to state 2
+    ld a, (recvbuf)
+    ld (telnet_iac_cmd), a
+    ld (hl), 2          ; Enter state 2
+    jp recv_done
+
+iac_state_2:
+    ; State 2: Got IAC+command, this is the option byte
+    ; Build appropriate response based on command received
+    ld a, (telnet_iac_cmd)
+    ld b, a
+    ld a, (recvbuf)
+    ld c, a             ; C = option code
+
+    ; Check if this is ECHO option (option 1)
+    ld a, c
+    cp 1                ; ECHO option?
+    jr nz, not_echo
+
+    ; ECHO option - check if server WILL or WONT echo
+    ld a, b
+    cp 0xFB             ; WILL?
+    jr nz, check_wont_echo
+
+    ; Server WILL ECHO - disable our local echo (for password entry)
+    xor a
+    ld (local_echo_enabled), a
+    ; Respond with DO ECHO
+    ld hl, telnet_response
+    ld (hl), 0xFF       ; IAC
+    inc hl
+    ld (hl), 0xFD       ; DO
+    inc hl
+    ld (hl), 1          ; ECHO
+    jr send_response
+
+check_wont_echo:
+    cp 0xFC             ; WONT?
+    jr nz, not_echo
+
+    ; Server WONT ECHO - enable our local echo (normal mode)
+    ld a, 1
+    ld (local_echo_enabled), a
+    ; Respond with DONT ECHO
+    ld hl, telnet_response
+    ld (hl), 0xFF       ; IAC
+    inc hl
+    ld (hl), 0xFE       ; DONT
+    inc hl
+    ld (hl), 1          ; ECHO
+    jr send_response
+
+not_echo:
+    ; Not ECHO option - use default responses
+    ; If server sent DO (0xFD) -> we respond WONT (0xFC)
+    ; If server sent WILL (0xFB) -> we respond DONT (0xFE)
+    ld a, b
+    cp 0xFD             ; DO?
+    jr z, respond_wont
+    cp 0xFB             ; WILL?
+    jr z, respond_dont
+    ; Otherwise don't respond, just reset state
+    jr reset_state
+
+respond_wont:
+    ; Build: IAC WONT <option>
+    ld hl, telnet_response
+    ld (hl), 0xFF       ; IAC
+    inc hl
+    ld (hl), 0xFC       ; WONT
+    inc hl
+    ld (hl), c          ; option
+    jr send_response
+
+respond_dont:
+    ; Build: IAC DONT <option>
+    ld hl, telnet_response
+    ld (hl), 0xFF       ; IAC
+    inc hl
+    ld (hl), 0xFE       ; DONT
+    inc hl
+    ld (hl), c          ; option
+
+send_response:
+    ; Send the 3-byte response
+    ld hl, telnet_response
+    ld bc, 3
+    call NET_SEND
+
+reset_state:
+    ; Reset state machine
+    ld hl, telnet_iac_state
+    ld (hl), 0
+    jp recv_done
 
 recv_done:
     pop hl
@@ -421,6 +560,14 @@ ip_addr:        db 127,0,0,1    ; Default localhost (for testing)
 port:           dw 23           ; Port 23 (default telnet port)
 sendtext:       ds 255
 recvbuf:        ds 2048
+
+; Telnet state machine for IAC sequence handling
+; 0 = normal data, 1 = got IAC (0xFF), 2 = got IAC+command
+telnet_iac_state:   db 0
+telnet_iac_cmd:     db 0        ; Stores the IAC command byte
+telnet_resp_opt:    db 0        ; Option code for response
+telnet_response:    ds 3        ; Buffer for IAC response
+local_echo_enabled: db 1        ; 1 = local echo on, 0 = off (server echoes)
 
 ; Compatibility stubs for negotiate.s (which expects M4 interface)
 ; recv - receive data (simplified stub)
