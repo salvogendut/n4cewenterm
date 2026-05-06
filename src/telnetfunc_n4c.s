@@ -26,8 +26,32 @@ telnet_session:
     ld hl, msgdebug_connect
     call disptextz
 
-    ld hl, ip_addr      ; Pointer to IP address
+    ; Debug: show port value loaded from memory
+    ld hl, msgdebug_port_loaded
+    call disptextz
     ld bc, (port)       ; Port number
+    push bc
+    ld a, b
+    call disp_hex_byte
+    ld a, c
+    call disp_hex_byte
+    ld a, ' '
+    call printchar
+    ld a, '('
+    call printchar
+    pop bc
+    push bc
+    push bc
+    ld h, b
+    ld l, c
+    call disp_dec16
+    pop bc
+    ld a, ')'
+    call printchar
+    call crlf
+    pop bc
+
+    ld hl, ip_addr      ; Pointer to IP address
     call NET_CONNECT
 
     ; Debug: read back what W5100S has for destination
@@ -540,6 +564,7 @@ msgport:        db  " port ",0
 msgdebug_socket: db 10,13,"[DEBUG] Creating TCP socket...",0
 msgdebug_socket_ok: db " OK",10,13,0
 msgdebug_connect: db "[DEBUG] Connecting...",10,13,0
+msgdebug_port_loaded: db "[DEBUG] Port loaded from memory: 0x",0
 msgsocket_error: db "ERROR: Failed to create socket",10,13,0
 msgconnect_error: db "ERROR: Connection failed",10,13,0
 msgdebug_socket_status: db "[DEBUG] Socket status register: 0x",0

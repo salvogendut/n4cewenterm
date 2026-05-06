@@ -118,6 +118,7 @@ do_lookup:
 
     call dns_resolve
     pop hl              ; Restore position for port parsing
+    push hl             ; Save it again for check_port
 
     jr c, .lookup_fail
 
@@ -133,9 +134,11 @@ do_lookup:
     call crlf
 
     ; IP is now in ip_addr, continue to port parsing
+    pop hl              ; Restore buffer position (at ':' or null)
     jr check_port
 
 .lookup_fail:
+    pop hl              ; Clean up stack (buffer position was pushed)
     ld hl, msgfail
     call disptextz
 
