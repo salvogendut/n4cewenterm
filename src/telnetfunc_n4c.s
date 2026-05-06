@@ -419,6 +419,12 @@ socket_error:
     call crlf
     ld hl, msgsocket_error
     call disptextz
+
+    ; Flush keyboard buffer
+.flush_sockerr_kb:
+    call KM_READ_CHAR
+    jr c, .flush_sockerr_kb
+
     jp loop_ip
 
 connect_error:
@@ -513,6 +519,11 @@ connect_error:
     call disp_dec
     call crlf
 
+    ; Flush keyboard buffer
+.flush_connerr_kb:
+    call KM_READ_CHAR
+    jr c, .flush_connerr_kb
+
     jp loop_ip
 
 disp_error:
@@ -522,6 +533,12 @@ disp_error:
 exit_error:
     call crlf
     call disp_error
+
+    ; Flush keyboard buffer
+.flush_error_kb:
+    call KM_READ_CHAR
+    jr c, .flush_error_kb
+
     jp loop_ip
     ret
 
@@ -532,6 +549,13 @@ exit_close:
     call disptextz
 
     call NET_CLOSE
+
+    ; Flush keyboard buffer to clear any stray characters (ESC, control chars)
+    ; that accumulated during the telnet session
+.flush_exit_kb:
+    call KM_READ_CHAR        ; Read without waiting
+    jr c, .flush_exit_kb     ; Keep flushing while chars available
+
     jp loop_ip
     ret
 
