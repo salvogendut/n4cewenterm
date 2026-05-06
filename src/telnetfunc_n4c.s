@@ -580,7 +580,7 @@ msgconnect:     db 10,13,"Connected.",10,13,0
 msgserverip:    db 10,13,"Input server name or IP (:PORT or default to 23):",10,13,0
 msgno_n4c:      db "No Net4CPC found, check connection.",10,13,0
 msgfound_n4c:   db "Net4CPC W5100S detected",10,13,0
-msgtest:        db "EwenN4C 2026 v1.0 - Based on Ewenterm (1991) and M4EWENTERM (2023)",10,13,0
+msgtest:        db "N4CEWENTERM 2026 v1.0 - Based on Ewenterm (1991) and M4EWENTERM (2023)",10,13,0
 msgclosing:     db 10,13,"Connection closed.",10,13,0
 msgerror:       db 10,13,"ERROR: Network error.",10,13,0
 msgconnecting:  db 10,13, "Connecting to IP ",0
