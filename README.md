@@ -1,3 +1,5 @@
+![Example Image](telnet.png)
+
 # N4CEWENTERM - ANSI Telnet Client for Amstrad CPC
 
 An ANSI terminal emulator and Telnet client for the Amstrad CPC with Net4CPC (W5100S Ethernet) hardware.
