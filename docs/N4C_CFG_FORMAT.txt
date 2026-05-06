@@ -20,24 +20,25 @@ LINE ENDINGS: CR+LF (0x0D 0x0A)
 FILE STRUCTURE
 ================================================================================
 
-Line 1: IP Address      (format: xxx.xxx.xxx.xxx)
-Line 2: Netmask         (format: xxx.xxx.xxx.xxx)
-Line 3: Gateway         (format: xxx.xxx.xxx.xxx)
-Line 4: DNS Server      (format: xxx.xxx.xxx.xxx)
+Line 1: IP=xxx.xxx.xxx.xxx      (IP Address)
+Line 2: MASK=xxx.xxx.xxx.xxx    (Netmask)
+Line 3: GW=xxx.xxx.xxx.xxx      (Gateway)
+Line 4: DNS=xxx.xxx.xxx.xxx     (DNS Server)
 
 Each line consists of:
-  - 4 decimal numbers (0-255)
-  - Separated by dots (.)
+  - Key name (IP, MASK, GW, or DNS)
+  - Equals sign (=)
+  - IP address (4 decimal numbers 0-255, separated by dots)
   - Terminated by CR+LF
 
 ================================================================================
 DEFAULT CONFIGURATION
 ================================================================================
 
-192.168.1.100    <- IP Address
-255.255.255.0     <- Netmask
-192.168.1.1      <- Gateway
-192.168.1.1     <- DNS Server
+IP=192.168.1.100     <- IP Address
+MASK=255.255.255.0   <- Netmask
+GW=192.168.1.1       <- Gateway
+DNS=192.168.1.1      <- DNS Server
 
 ================================================================================
 HEX DUMP EXAMPLE
@@ -45,10 +46,11 @@ HEX DUMP EXAMPLE
 
 Offset    Hex                                          ASCII
 --------  -----------------------------------------------  ----------------
-00000000  31 39 32 2e 31 36 38 2e 36 38 2e 32 35 34 0d 0a  |192.168.1.100..|
-00000010  32 35 35 2e 32 35 35 2e 32 35 35 2e 30 0d 0a 31  |255.255.255.0..1|
-00000020  39 32 2e 31 36 38 2e 36 38 2e 31 0d 0a 31 39 32  |92.168.68.1..192|
-00000030  2e 31 36 38 2e 36 38 2e 35 34 0d 0a              |.168.68.54..|
+00000000  49 50 3d 31 39 32 2e 31 36 38 2e 31 2e 31 30 30  |IP=192.168.1.100|
+00000010  0d 0a 4d 41 53 4b 3d 32 35 35 2e 32 35 35 2e 32  |..MASK=255.255.2|
+00000020  35 35 2e 30 0d 0a 47 57 3d 31 39 32 2e 31 36 38  |55.0..GW=192.168|
+00000030  2e 31 2e 31 0d 0a 44 4e 53 3d 31 39 32 2e 31 36  |.1.1..DNS=192.16|
+00000040  38 2e 31 2e 31 0d 0a                             |8.1.1..|
 
 Note the 0d 0a (CR LF) at the end of each line.
 
@@ -72,12 +74,12 @@ ON LINUX/MAC:
 
 ON AMSTRAD CPC:
   10 OPENOUT "N4C.CFG"
-  20 PRINT #9,"192.168.1.100"
-  30 PRINT #9,"255.255.255.0"
-  40 PRINT #9,"192.168.1.1"
-  50 PRINT #9,"192.168.1.1"
+  20 PRINT #9,"IP=192.168.1.100"
+  30 PRINT #9,"MASK=255.255.255.0"
+  40 PRINT #9,"GW=192.168.1.1"
+  50 PRINT #9,"DNS=192.168.1.1"
   60 CLOSEOUT
-  
+
   The CPC automatically adds CR+LF when using PRINT #
 
 ================================================================================

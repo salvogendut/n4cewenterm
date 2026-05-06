@@ -44,7 +44,7 @@ After a successful build, you'll find:
 ```
 bin/
 ├── CHARSET.BIN  - Character set (2176 bytes)
-└── N4CEWEN.BIN  - Terminal binary (12466 bytes)
+└── N4CEWEN.BIN  - Terminal binary (13490 bytes)
 ```
 
 ## Installing on CPC

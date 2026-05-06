@@ -5,7 +5,7 @@ N4CEWENTERM - Configuration File Support Upgrade
 NEW FEATURE: Network Configuration from N4C.CFG File
 
 All network settings (IP, Netmask, Gateway, DNS) are now read from an external
-configuration file instead of being hardcoded in EWEN.BAS. This makes it easy
+configuration file instead of being hardcoded in N4CEWEN.BAS. This makes it easy
 to change network settings and share the same config across all n4c-nettools
 applications.
 
@@ -21,7 +21,7 @@ n4cewenterm/
 ├── NEW: src/n4c-netinit.s      - Network initialization module
 ├── MODIFIED: src/termN4C.s     - Includes n4c-netinit.s
 ├── MODIFIED: src/main.s        - Calls N4C_INIT at startup
-├── MODIFIED: src/EWEN.BAS      - Simplified (no network config)
+├── MODIFIED: src/N4CEWEN.BAS      - Simplified (no network config)
 └── MODIFIED: README.md         - Updated installation instructions
 
 n4c-nettools/
@@ -35,22 +35,22 @@ WHAT TO DO
 --------------------------------------------------------------------------------
 
 1. CREATE N4C.CFG FILE
-   Create a file named N4C.CFG with your network settings (4 lines):
+   Create a file named N4C.CFG with your network settings (key=value format):
 
-   192.168.1.100      <- Your CPC's IP address
-   255.255.255.0      <- Netmask (usually this for home networks)
-   192.168.1.1        <- Your router's IP address
-   192.168.1.1        <- DNS server (can be router or 8.8.8.8)
+   IP=192.168.1.100      <- Your CPC's IP address
+   MASK=255.255.255.0    <- Netmask (usually this for home networks)
+   GW=192.168.1.1        <- Your router's IP address
+   DNS=192.168.1.1       <- DNS server (can be router or 8.8.8.8)
 
 2. COPY FILES TO CPC
    Copy these files to your CPC disk:
-   - src/EWEN.BAS          (new simplified version)
-   - bin/EWENN4C.BIN       (new build with config support)
+   - src/N4CEWEN.BAS          (new simplified version)
+   - bin/N4CEWEN.BIN       (new build with config support)
    - bin/CHARSET.BIN       (unchanged)
    - N4C.CFG               (your configuration!)
 
 3. RUN
-   RUN"EWEN
+   RUN"N4CEWEN
 
    You'll see:
    - Network configuration being loaded and displayed
@@ -62,7 +62,7 @@ OLD vs NEW
 --------------------------------------------------------------------------------
 
 OLD METHOD (hardcoded in BASIC):
-  - Edit EWEN.BAS lines 169-193 with your IP settings
+  - Edit N4CEWEN.BAS lines 169-193 with your IP settings
   - Different config for each application
   - Need to edit BASIC code every time network changes
 

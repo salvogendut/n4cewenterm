@@ -8,10 +8,10 @@ Files Ready to Copy to CPC:
 ----------------------------
 
 1. BASIC Files:
-   ✓ src/EWEN.BAS              (CR+LF, verified)
+   ✓ src/N4CEWEN.BAS              (CR+LF, verified)
    
 2. Binary Files:
-   ✓ bin/EWENN4C.BIN           (13,234 bytes)
+   ✓ bin/N4CEWEN.BIN           (13,490 bytes)
    ✓ bin/CHARSET.BIN           (2,176 bytes)
    
 3. Configuration:
@@ -28,8 +28,8 @@ DNS Server: 192.168.1.1
 
 Line Ending Verification:
 -------------------------
-$ file src/EWEN.BAS
-src/EWEN.BAS: ASCII text, with CRLF line terminators ✓
+$ file src/N4CEWEN.BAS
+src/N4CEWEN.BAS: ASCII text, with CRLF line terminators ✓
 
 $ file N4C.CFG
 N4C.CFG: ASCII text, with CRLF line terminators ✓
@@ -37,13 +37,13 @@ N4C.CFG: ASCII text, with CRLF line terminators ✓
 Installation on CPC:
 -------------------
 1. Copy these 4 files to your CPC disk:
-   - EWEN.BAS
-   - EWENN4C.BIN
+   - N4CEWEN.BAS
+   - N4CEWEN.BIN
    - CHARSET.BIN
    - N4C.CFG (edit first if needed!)
 
 2. On CPC, run:
-   RUN"EWEN
+   RUN"N4CEWEN
 
 Expected Behavior:
 -----------------
@@ -76,18 +76,18 @@ CONFIG.md                - Configuration file documentation
 BUILD_INSTRUCTIONS.md    - How to build from source
 
 ================================================================================
-ISSUE RESOLVED: EWEN.BAS "Line too long" Error
+ISSUE RESOLVED: N4CEWEN.BAS "Line too long" Error
 ================================================================================
 
 Problem: 
-  EWEN.BAS had Unix line endings (LF only) which caused "Line too long" error
+  N4CEWEN.BAS had Unix line endings (LF only) which caused "Line too long" error
   
 Solution:
   Converted to DOS/CPC line endings (CR+LF)
   
 Prevention:
   - Use fix_cpc_files.sh before copying to CPC
-  - Check with: file src/EWEN.BAS
+  - Check with: file src/N4CEWEN.BAS
   - Should show: "with CRLF line terminators"
 
 ================================================================================

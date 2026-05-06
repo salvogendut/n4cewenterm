@@ -85,10 +85,10 @@ Expected output:
 ```
 Testing N4C.CFG file...
 File opened successfully!
-Line 1: 192.168.1.100
-Line 2: 255.255.255.0
-Line 3: 192.168.1.1
-Line 4: 192.168.1.1
+Line 1: IP=192.168.1.100
+Line 2: MASK=255.255.255.0
+Line 3: GW=192.168.1.1
+Line 4: DNS=192.168.1.1
 Test complete.
 ```
 
@@ -105,7 +105,7 @@ NEXT I
 CLOSEIN
 ```
 
-Should show your 4 IP addresses.
+Should show your 4 config lines (key=value format).
 
 ### Step 4: Recreate File on CPC
 
@@ -113,10 +113,10 @@ If the file isn't found, create it directly on the CPC:
 
 ```basic
 10 OPENOUT "N4C.CFG"
-20 PRINT #9,"192.168.1.100"
-30 PRINT #9,"255.255.255.0"
-40 PRINT #9,"192.168.1.1"
-50 PRINT #9,"192.168.1.1"
+20 PRINT #9,"IP=192.168.1.100"
+30 PRINT #9,"MASK=255.255.255.0"
+40 PRINT #9,"GW=192.168.1.1"
+50 PRINT #9,"DNS=192.168.1.1"
 60 CLOSEOUT
 70 PRINT "N4C.CFG created!"
 ```
@@ -153,10 +153,10 @@ If your PC-created file doesn't work, create it on the CPC:
 
 ```basic
 10 OPENOUT "N4C.CFG"
-20 PRINT #9,"192.168.1.100"     :REM Your IP
-30 PRINT #9,"255.255.255.0"     :REM Netmask
-40 PRINT #9,"192.168.1.1"       :REM Gateway
-50 PRINT #9,"192.168.1.1"       :REM DNS
+20 PRINT #9,"IP=192.168.1.100"     :REM Your IP
+30 PRINT #9,"MASK=255.255.255.0"   :REM Netmask
+40 PRINT #9,"GW=192.168.1.1"       :REM Gateway
+50 PRINT #9,"DNS=192.168.1.1"      :REM DNS
 60 CLOSEOUT
 ```
 
@@ -206,7 +206,7 @@ Please try these steps and let me know what you find!
 The fastest solution - type this on your CPC right now:
 
 ```basic
-OPENOUT"N4C.CFG":PRINT#9,"192.168.1.100":PRINT#9,"255.255.255.0":PRINT#9,"192.168.1.1":PRINT#9,"192.168.1.1":CLOSEOUT
+OPENOUT"N4C.CFG":PRINT#9,"IP=192.168.1.100":PRINT#9,"MASK=255.255.255.0":PRINT#9,"GW=192.168.1.1":PRINT#9,"DNS=192.168.1.1":CLOSEOUT
 ```
 
 Then run `|TERM` again.

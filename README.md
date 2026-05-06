@@ -52,7 +52,7 @@ See `CONFIG.md` for full configuration documentation.
 ```
 
 This produces:
-- `N4CEWEN.BIN` - Terminal program (12466 bytes)
+- `N4CEWEN.BIN` - Terminal program (13490 bytes)
 - `CHARSET.BIN` - Character set (2176 bytes)
 
 ## Installation
