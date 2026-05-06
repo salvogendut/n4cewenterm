@@ -145,4 +145,4 @@ CharacterSet
 
 HCharSet	EQU	CharacterSet / 256
 
-SAVE 'CHARSET.BIN',#6800,$-#6800,AMSDOS
+; SAVE directive removed - charset is now embedded in main binary

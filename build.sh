@@ -25,32 +25,23 @@ echo "Using: $RASM"
 # Create bin directory if it doesn't exist
 mkdir -p bin
 
-# Assemble the character set
-$RASM src/charset.s
-if [ $? -ne 0 ]; then
-    echo "Character set build failed!"
-    exit 1
-fi
-
-# Assemble the main binary
+# Assemble the main binary (now includes charset)
 $RASM src/termN4C.s
 
 if [ $? -eq 0 ]; then
-    # Move binaries to bin directory (RASM SAVE directive outputs to current dir)
-    mv CHARSET.BIN bin/ 2>/dev/null
+    # Move binary to bin directory (RASM SAVE directive outputs to current dir)
     mv EWENN4C.BIN bin/ 2>/dev/null
 
     echo ""
     echo "Build successful!"
     echo ""
     echo "Files generated in bin/:"
-    echo "  - EWENN4C.BIN (terminal binary, $(stat -c%s bin/EWENN4C.BIN) bytes)"
-    echo "  - CHARSET.BIN (character set, $(stat -c%s bin/CHARSET.BIN) bytes)"
+    echo "  - EWENN4C.BIN (combined binary with charset, $(stat -c%s bin/EWENN4C.BIN) bytes)"
     echo ""
     echo "Files to copy to your CPC:"
     echo "  1. src/EWEN.BAS"
     echo "  2. bin/EWENN4C.BIN"
-    echo "  3. bin/CHARSET.BIN"
+    echo "  3. N4C.CFG (your network configuration)"
     echo ""
     echo "Then on CPC: RUN\"EWEN"
 else

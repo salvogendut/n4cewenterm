@@ -13,14 +13,17 @@ screen_depth    equ 25
 
 colour      equ true
 
-    org #7000 ; Start assembling at #7000, Charset loaded at runtime
+; First load the character set at 0x6800
+    org #6800
+    include "charset.s"
+
+; Now the main program at 0x7000
+    org #7000
 
     nolist
 
 ; Constants and firmware routines
-
-Characterset  equ #6800
-HCharSet      equ #0068
+; (Characterset and HCharSet are now defined in charset.s)
 
 top
 
@@ -115,4 +118,4 @@ rsx_data_area
     include "negotiate.s"
     include "data.s"
 
-SAVE 'EWENN4C.BIN',#7000,$-#7000,AMSDOS
+SAVE 'EWENN4C.BIN',#6800,$-#6800,AMSDOS

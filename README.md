@@ -50,8 +50,7 @@ See `CONFIG.md` for full configuration documentation.
 ```
 
 This produces:
-- `EWENN4C.BIN` - Terminal program (12466 bytes)
-- `CHARSET.BIN` - Character set (2176 bytes)
+- `EWENN4C.BIN` - Combined binary with charset and program (~15KB)
 
 ## Installation
 
@@ -75,9 +74,8 @@ See `CONFIG.md` for detailed configuration instructions and troubleshooting.
 
 Copy these files to your CPC:
 1. `src/EWEN.BAS` - BASIC loader
-2. `bin/EWENN4C.BIN` - Terminal program
-3. `bin/CHARSET.BIN` - Character set
-4. `N4C.CFG` - Your network configuration
+2. `bin/EWENN4C.BIN` - Combined binary (includes charset and program)
+3. `N4C.CFG` - Your network configuration
 
 ### 3. Run
 
