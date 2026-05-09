@@ -1,7 +1,7 @@
 ![Example Image](telnet.png)
 
-> **⚠️ NETWORKING CODE HAS MOVED**
-> The networking library (`w5100.s`, `dns_simple.s`, `n4c-netinit-kv.s`) is now maintained in **[n4c-nettools](../n4c-nettools/)**. Do not use the copies in this repository for new projects — go there instead. Two versions are available: **Standard** (recommended, works on any Net4CPC hardware) and **Albireo**.
+> **⚠️ THIS PROJECT HAS MOVED**
+> Development has moved to **[https://github.com/salvogendut/n4c-nettools](https://github.com/salvogendut/n4c-nettools)**. This repository is no longer maintained. Two versions of the library are available there: **Standard** (recommended, works on any Net4CPC hardware) and **Albireo**. Please use that repository for all new projects.
 
 # N4CEWENTERM - ANSI Telnet Client for Amstrad CPC
 
