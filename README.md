@@ -20,14 +20,16 @@ N4CEWENTERM is a full-featured telnet client based on the classic Ewenterm (1991
 
 ## Network Library
 
-This application includes local copies of the n4c-nettools networking library:
-- `src/n4c-netinit-kv.s` - Network initialization from config file (key=value format)
-- `src/w5100.s` - W5100S hardware driver (28KB)
-- `src/dns_simple.s` - DNS resolver (14KB)
+The networking code (`n4c-netinit-kv.s`, `w5100.s`, `dns_simple.s`) has moved to the dedicated **[n4c-nettools](../n4c-nettools/)** repository, which is the canonical source for all Net4CPC networking code.
 
-These files are maintained in the main n4c-nettools repository. See `../n4c-nettools/` for the reference implementation and documentation.
+n4c-nettools currently provides two versions of the library:
 
-**Note:** This is a self-contained application. All required files are included in this directory.
+- **Standard** — works on any CPC hardware with Net4CPC. This is the recommended version.
+- **Albireo** — variant for CPC machines with Albireo hardware.
+
+If you are starting a new project or integrating the networking code, use the **Standard** version.
+
+The copies of those files in `src/` here are kept in sync with the upstream repository.
 
 ## Network Configuration
 
