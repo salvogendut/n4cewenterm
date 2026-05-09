@@ -1,5 +1,8 @@
 ![Example Image](telnet.png)
 
+> **⚠️ NETWORKING CODE HAS MOVED**
+> The networking library (`w5100.s`, `dns_simple.s`, `n4c-netinit-kv.s`) is now maintained in **[n4c-nettools](../n4c-nettools/)**. Do not use the copies in this repository for new projects — go there instead. Two versions are available: **Standard** (recommended, works on any Net4CPC hardware) and **Albireo**.
+
 # N4CEWENTERM - ANSI Telnet Client for Amstrad CPC
 
 An ANSI terminal emulator and Telnet client for the Amstrad CPC with Net4CPC (W5100S Ethernet) hardware.
@@ -17,19 +20,6 @@ N4CEWENTERM is a full-featured telnet client based on the classic Ewenterm (1991
 - **DNS resolution** - Connect using hostnames (e.g., "aardwolf.org")
 - **IP connections** - Direct IP address connections
 - **Custom ports** - Specify ports (e.g., "example.com:23")
-
-## Network Library
-
-The networking code (`n4c-netinit-kv.s`, `w5100.s`, `dns_simple.s`) has moved to the dedicated **[n4c-nettools](../n4c-nettools/)** repository, which is the canonical source for all Net4CPC networking code.
-
-n4c-nettools currently provides two versions of the library:
-
-- **Standard** — works on any CPC hardware with Net4CPC. This is the recommended version.
-- **Albireo** — variant for CPC machines with Albireo hardware.
-
-If you are starting a new project or integrating the networking code, use the **Standard** version.
-
-The copies of those files in `src/` here are kept in sync with the upstream repository.
 
 ## Network Configuration
 
